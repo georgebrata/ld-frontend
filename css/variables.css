@@ -1,0 +1,43 @@
+:root {
+  /* Brand */
+  --color-bg-home: #52555b;
+  --color-dark: #1f2227;
+  --color-charcoal: #23262b;
+  --color-card-text: #50565b;
+  --color-white: #fff;
+  --color-muted: #bdc3c7;
+  --color-error: #e74c3c;
+  --color-success: #27ae60;
+
+  /* Platform gradients */
+  --gradient-instagram: linear-gradient(190deg, #feda77 0%, #d62976 50%, #962fbf 100%);
+  --gradient-tiktok: linear-gradient(45deg, #ff005c, #c10046);
+  --gradient-youtube: linear-gradient(to right, #efbaba 40%, #ff0000 60%);
+  --gradient-facebook: #4c66a4;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Typography */
+  --font-body: 'Outfit', sans-serif;
+  --font-display: 'Passion One', cursive;
+
+  /* Z-index */
+  --z-menu: 4;
+  --z-menu-trigger: 5;
+  --z-modal-backdrop: 40000;
+  --z-modal: 40001;
+
+  /* Motion */
+  --transition-fast: 200ms ease;
+  --transition-base: 400ms ease;
+  --transition-slow: 500ms ease;
+
+  /* Breakpoints (reference) */
+  /* 320, 375, 390, 430, 768, 1024, 1280 */
+}

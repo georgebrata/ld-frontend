@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://like-dealer.com/sitemap.xml
