@@ -3,6 +3,7 @@ import { getPlatformIconUrl, getPlatformInitials } from '../utils/platform-icons
 import { createEl, clearChildren } from '../utils/dom.js';
 import { renderLoading, renderEmpty, renderError } from '../components/catalogue-states.js';
 import { createCardFrameSvg } from '../components/card-frame.js';
+import { bindPrefetch } from '../utils/prefetch.js';
 
 /**
  * Render a platform icon or badge fallback.
@@ -25,6 +26,11 @@ function createPlatformIcon(platform, platformLabel) {
  * @param {HTMLElement} container
  */
 export async function renderHomeCatalogue(container) {
+  if (container.querySelector('#home .home-card')) {
+    bindPrefetch(container);
+    return;
+  }
+
   renderLoading(container);
 
   const load = async () => {
@@ -59,6 +65,7 @@ export async function renderHomeCatalogue(container) {
       });
 
       container.appendChild(home);
+      bindPrefetch(container);
     } catch {
       renderError(container, () => load());
     }

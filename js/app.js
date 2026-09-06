@@ -2,6 +2,7 @@ import { renderHomeCatalogue } from './catalogue/render-home.js';
 import { renderPlatformCatalogue } from './catalogue/render-services.js';
 import { initConfirmationPage } from './confirmation/confirmation-page.js';
 import { initTypedIntro } from './components/typed-intro.js';
+import { initServicePage } from './pages/service-page.js';
 
 /**
  * Bootstrap page-specific functionality.
@@ -21,6 +22,11 @@ function init() {
     const container = document.getElementById('catalogue-root');
     const platform = document.body.dataset.platform;
     if (container && platform) renderPlatformCatalogue(container, platform);
+    return;
+  }
+
+  if (pageType === 'service') {
+    initServicePage();
     return;
   }
 

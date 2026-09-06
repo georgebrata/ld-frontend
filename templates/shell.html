@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>{{TITLE}}</title>
+  <link rel="canonical" href="{{CANONICAL}}" />
+
+  <link rel="icon" sizes="192x192" href="/favicon/safari-pinned-tab.svg" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta name="theme-color" content="{{THEME_COLOR}}" />
+
+  <meta name="author" content="Like Dealer" />
+  <meta name="description" content="{{DESCRIPTION}}" />
+
+  <meta property="og:description" content="{{DESCRIPTION}}" />
+  <meta property="og:site_name" content="Like Dealer" />
+  <meta property="og:title" content="{{OG_TITLE}}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="{{CANONICAL}}" />
+
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://script.google.com" />
+  <link rel="preconnect" href="https://ajax.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
+
+  <link rel="preload" href="/assets/like-dealer-logo.svg" as="image" />
+  <link rel="preload" href="/assets/scroll-icon.svg" as="image" />
+  <link rel="modulepreload" href="/js/app.js" />
+  {{RESOURCE_HINTS}}
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
+  <link rel="manifest" href="/favicon/site.webmanifest" />
+  <link rel="mask-icon" href="/favicon/safari-pinned-tab.svg" color="#1f2227" />
+  <link rel="shortcut icon" href="/favicon/favicon.ico" />
+  <meta name="msapplication-TileColor" content="#da532c" />
+  <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
+
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script defer src="/plugins/gtm.js"></script>
+  <script defer src="/plugins/plugins.js"></script>
+  <script defer src="/js/ui/scene.js"></script>
+</head>
+
+<body class="{{BODY_CLASS}}" {{BODY_ATTRS}}>
+  <div id="menu">
+    <ul>
+      {{MENU}}
+    </ul>
+  </div>
+
+  <div id="menu-trigger">
+    <div class="menu-trigger"></div>
+    <div class="menu-trigger"></div>
+    <div class="menu-trigger"></div>
+  </div>
+
+  <div id="wrapper">
+    <div id="inner">
+      <div id="sky"></div>
+
+      <div id="background">
+        {{HERO_SVG}}
+      </div>
+
+      <div id="header">
+        <a href="/" id="logo">
+          <img src="/assets/like-dealer-logo.svg" alt="Like Dealer — boost your social media" width="100%" fetchpriority="high" />
+        </a>
+
+        <div id="intro">
+          <span id="intro1" class="typed-intro"></span>
+          <div id="scrolldown">
+            <img src="/assets/scroll-icon.svg" alt="scroll down icon" />
+          </div>
+        </div>
+      </div>
+
+      <main id="page">
+        <h1 class="page-title">{{PAGE_TITLE}}</h1>
+        <div id="catalogue-root" aria-live="polite">{{CATALOGUE}}</div>
+        <section class="content">
+          {{CONTENT}}
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="checkout-modal-root" hidden></div>
+  <script type="application/json" id="services-data">{{SERVICES_JSON}}</script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+
+</html>

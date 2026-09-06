@@ -1,0 +1,101 @@
+{
+  "services": [
+    {
+      "id": "01",
+      "platform": "instagram",
+      "platformLabel": "Instagram",
+      "service": "Likes",
+      "label": "Instagram Likes",
+      "description": "",
+      "price": 2.2,
+      "inputs": [
+        "url"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "likes",
+      "url": "/instagram/likes/"
+    },
+    {
+      "id": "02",
+      "platform": "instagram",
+      "platformLabel": "Instagram",
+      "service": "Followers",
+      "label": "Instagram Followers",
+      "description": "",
+      "price": 4.2,
+      "inputs": [
+        "username"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "followers",
+      "url": "/instagram/followers/"
+    },
+    {
+      "id": "03",
+      "platform": "instagram",
+      "platformLabel": "Instagram",
+      "service": "Comments",
+      "label": "Instagram Comments",
+      "description": "",
+      "price": 7,
+      "inputs": [
+        "url",
+        "commentsList"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "comments",
+      "url": "/instagram/comments/"
+    },
+    {
+      "id": "04",
+      "platform": "tiktok",
+      "platformLabel": "TikTok",
+      "service": "Likes",
+      "label": "TikTok Likes",
+      "description": "",
+      "price": 1.5,
+      "inputs": [
+        "url"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "likes",
+      "url": "/tiktok/likes/"
+    },
+    {
+      "id": "05",
+      "platform": "tiktok",
+      "platformLabel": "TikTok",
+      "service": "Followers",
+      "label": "TikTok Followers",
+      "description": "",
+      "price": 3.1,
+      "inputs": [
+        "username"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "followers",
+      "url": "/tiktok/followers/"
+    },
+    {
+      "id": "06",
+      "platform": "youtube",
+      "platformLabel": "Youtube",
+      "service": "Subscribers",
+      "label": "Youtube Subscribers",
+      "description": "",
+      "price": 4,
+      "inputs": [
+        "url"
+      ],
+      "socialpanelId": "",
+      "visible": true,
+      "slug": "subscribers",
+      "url": "/youtube/subscribers/"
+    }
+  ]
+}

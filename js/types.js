@@ -10,6 +10,8 @@
  * @property {string[]} inputs
  * @property {string} socialpanelId
  * @property {boolean} visible
+ * @property {string} [slug]
+ * @property {string} [url]
  */
 
 /**

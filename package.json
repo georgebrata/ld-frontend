@@ -1,0 +1,12 @@
+{
+  "name": "ld-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && npx --yes serve ."
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

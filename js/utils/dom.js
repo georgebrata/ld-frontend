@@ -33,12 +33,11 @@ export function clearChildren(parent) {
 }
 
 /**
- * Resolve asset path relative to site root.
+ * Resolve asset path from the site root.
  * @param {string} assetPath
  * @returns {string}
  */
 export function assetPath(assetPath) {
-  const depth = (window.location.pathname.match(/\//g) || []).length - 1;
-  const prefix = depth > 1 ? '../'.repeat(depth - 1) : depth === 1 ? '../' : './';
-  return `${prefix}${assetPath.replace(/^\.\//, '')}`;
+  const clean = String(assetPath ?? '').replace(/^\.\//, '').replace(/^\//, '');
+  return `/${clean}`;
 }

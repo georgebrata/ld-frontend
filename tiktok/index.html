@@ -6,46 +6,62 @@
   <title>TikTok Services | Like Dealer</title>
   <link rel="canonical" href="https://like-dealer.com/tiktok/" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#ff005c" />
   <link rel="icon" sizes="192x192" href="/favicon/safari-pinned-tab.svg" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta name="theme-color" content="#ff005c" />
+
   <meta name="author" content="Like Dealer" />
-  <meta name="description"
-    content="Buy TikTok likes and followers. Premium engagement services from Like Dealer." />
-  <meta property="og:description"
-    content="Buy TikTok likes and followers. Premium engagement services from Like Dealer." />
+  <meta name="description" content="Buy TikTok likes, followers, and engagement. Premium services from Like Dealer." />
+
+  <meta property="og:description" content="Buy TikTok likes, followers, and engagement. Premium services from Like Dealer." />
   <meta property="og:site_name" content="Like Dealer" />
   <meta property="og:title" content="TikTok Services | Like Dealer" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://like-dealer.com/tiktok/" />
+
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://script.google.com" />
+  <link rel="preconnect" href="https://ajax.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
 
+  <link rel="preload" href="/assets/like-dealer-logo.svg" as="image" />
+  <link rel="preload" href="/assets/scroll-icon.svg" as="image" />
+  <link rel="modulepreload" href="/js/app.js" />
+  <link rel="prefetch" href="/assets/cardLogos/tiktok.svg" as="image" />
+  <link rel="prefetch" href="/tiktok/likes/" />
+  <link rel="prefetch" href="/tiktok/followers/" />
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
   <link rel="manifest" href="/favicon/site.webmanifest" />
   <link rel="mask-icon" href="/favicon/safari-pinned-tab.svg" color="#1f2227" />
+  <link rel="shortcut icon" href="/favicon/favicon.ico" />
+  <meta name="msapplication-TileColor" content="#da532c" />
+  <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
 
-  <link rel="stylesheet" href="../css/variables.css" />
-  <link rel="stylesheet" href="../css/base.css" />
-  <link rel="stylesheet" href="../css/components.css" />
-  <link rel="stylesheet" href="../css/pages.css" />
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-  <script src="../plugins/gtm.js"></script>
-  <script src="../plugins/plugins.js"></script>
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script defer src="/plugins/gtm.js"></script>
+  <script defer src="/plugins/plugins.js"></script>
+  <script defer src="/js/ui/scene.js"></script>
 </head>
 
 <body class="platform-tiktok" data-page="platform" data-platform="tiktok">
   <div id="menu">
     <ul>
-      <li><a href="../" class="menu">Home</a></li>
-      <li><a href="../why" class="menu">Why</a></li>
-      <li><a href="../instagram" class="menu">Instagram</a></li>
-      <li><a href="../tiktok" class="menu">Tiktok</a></li>
-      <li><a href="../youtube" class="menu">Youtube</a></li>
-      <li><a href="../facebook" class="menu">Facebook</a></li>
+      <li><a href="/" class="menu">Home</a></li>
+      <li><a href="/why/" class="menu">Why</a></li>
+      <li><a href="/instagram/" class="menu">Instagram</a></li>
+      <li><a href="/tiktok/" class="menu">TikTok</a></li>
+      <li><a href="/youtube/" class="menu">Youtube</a></li>
     </ul>
   </div>
 
@@ -57,11 +73,6 @@
 
   <div id="wrapper">
     <div id="inner">
-      <script type="text/javascript">
-        document.getElementById('wrapper').style.opacity = '0';
-        document.getElementById('menu-trigger').style.opacity = '0';
-      </script>
-
       <div id="sky"></div>
 
       <div id="background">
@@ -126,8 +137,8 @@
                 fill: #f0d6b9;
               }
 
-              #Closed {
-                display: none;
+              #Opened {
+                opacity: 0;
               }
             </style>
           </defs>
@@ -202,30 +213,53 @@
 
       <div id="header">
         <a href="/" id="logo">
-          <img src="../assets/like-dealer-logo.svg" alt="Like Dealer - boost your social media" width="100%" />
+          <img src="/assets/like-dealer-logo.svg" alt="Like Dealer — boost your social media" width="100%" fetchpriority="high" />
         </a>
 
         <div id="intro">
           <span id="intro1" class="typed-intro"></span>
           <div id="scrolldown">
-            <img src="../assets/scroll-icon.svg" alt="scroll down icon" />
+            <img src="/assets/scroll-icon.svg" alt="scroll down icon" />
           </div>
         </div>
       </div>
 
       <main id="page">
         <h1 class="page-title">TikTok Services</h1>
-        <div id="catalogue-root" aria-live="polite"></div>
-        <section class="content content--why-link">
-          <a href="../why" class="why-page-link">Still posting into the void? Here's why that's optional →</a>
+        <div id="catalogue-root" aria-live="polite"><div id="services">
+      <a class="gcard service-card" href="/tiktok/likes/" aria-label="TikTok Likes">
+        <div class="gcard-front service-card-front">
+          <svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z"></path></g></svg>
+          <div class="gcard-logo service-card-logo">
+            <div class="service-title gcard-value gcard-type service-card-type"><p>Likes</p></div>
+            <img src="/assets/cardLogos/tiktok.svg" alt="TikTok logo" />
+            
+            <div class="service-title gcard-value service-card-value"><p>$1.5 per 1k</p></div>
+          </div>
+        </div>
+      </a>
+      <a class="gcard service-card" href="/tiktok/followers/" aria-label="TikTok Followers">
+        <div class="gcard-front service-card-front">
+          <svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z"></path></g></svg>
+          <div class="gcard-logo service-card-logo">
+            <div class="service-title gcard-value gcard-type service-card-type"><p>Followers</p></div>
+            <img src="/assets/cardLogos/tiktok.svg" alt="TikTok logo" />
+            
+            <div class="service-title gcard-value service-card-value"><p>$3.1 per 1k</p></div>
+          </div>
+        </div>
+      </a>
+    </div></div>
+        <section class="content">
+          <p><a href="/why/" class="why-page-link">Still posting into the void? Here's why that's optional →</a></p>
         </section>
       </main>
     </div>
-    <!-- END OF INNER -->
   </div>
 
   <div id="checkout-modal-root" hidden></div>
-  <script type="module" src="../js/app.js"></script>
+  <script type="application/json" id="services-data">{"services":[{"id":"01","platform":"instagram","platformLabel":"Instagram","service":"Likes","label":"Instagram Likes","description":"","price":2.2,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"likes","url":"/instagram/likes/"},{"id":"02","platform":"instagram","platformLabel":"Instagram","service":"Followers","label":"Instagram Followers","description":"","price":4.2,"inputs":["username"],"socialpanelId":"","visible":true,"slug":"followers","url":"/instagram/followers/"},{"id":"03","platform":"instagram","platformLabel":"Instagram","service":"Comments","label":"Instagram Comments","description":"","price":7,"inputs":["url","commentsList"],"socialpanelId":"","visible":true,"slug":"comments","url":"/instagram/comments/"},{"id":"04","platform":"tiktok","platformLabel":"TikTok","service":"Likes","label":"TikTok Likes","description":"","price":1.5,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"likes","url":"/tiktok/likes/"},{"id":"05","platform":"tiktok","platformLabel":"TikTok","service":"Followers","label":"TikTok Followers","description":"","price":3.1,"inputs":["username"],"socialpanelId":"","visible":true,"slug":"followers","url":"/tiktok/followers/"},{"id":"06","platform":"youtube","platformLabel":"Youtube","service":"Subscribers","label":"Youtube Subscribers","description":"","price":4,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"subscribers","url":"/youtube/subscribers/"}],"phrases":["Boost your socials","Instagram Likes","Instagram Followers","Instagram Comments","TikTok Likes","TikTok Followers","Youtube Subscribers"]}</script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 
 </html>

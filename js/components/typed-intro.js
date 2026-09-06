@@ -15,17 +15,13 @@ const PAUSE_AFTER_DELETE = 400;
 const TAGLINE = 'Boost your socials';
 
 /**
- * Build phrase list: tagline first, then all visible service labels from the API.
- * @returns {Promise<string[]>}
+ * Build phrase list from the prerendered snapshot or the API.
+ * @returns {string[]}
  */
-async function buildPhrases() {
-  try {
-    const services = await servicesApi.getServices();
-    const labels = services.map((service) => service.label).filter(Boolean);
-    return [TAGLINE, ...labels];
-  } catch {
-    return [TAGLINE];
-  }
+function phrasesFromSnapshot() {
+  const phrases = servicesApi.readBootstrapPhrases();
+  if (phrases && phrases.length) return phrases;
+  return [TAGLINE];
 }
 
 /**
@@ -98,18 +94,18 @@ function tick(textEl, phrases, phraseIndex, charIndex, isDeleting) {
 /**
  * Initialise typed.js-style hero tagline on #intro1.
  */
-export async function initTypedIntro() {
+export function initTypedIntro() {
   const el = document.getElementById('intro1');
   if (!el) return;
 
   const { textEl } = buildTypedMarkup(el);
   el.setAttribute('aria-live', 'polite');
-  textEl.textContent = TAGLINE;
 
-  const phrases = await buildPhrases();
+  const phrases = phrasesFromSnapshot();
+  textEl.textContent = phrases[0] || TAGLINE;
 
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    textEl.textContent = phrases[0];
+    textEl.textContent = phrases[0] || TAGLINE;
     el.querySelector('.typed-intro__cursor')?.remove();
     return;
   }

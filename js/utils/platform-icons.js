@@ -1,19 +1,10 @@
 import { assetPath } from './dom.js';
+import { toPlatformSlug } from './slugs.js';
+
+export { toPlatformSlug };
 
 /** @type {Set<string>} */
 const knownIcons = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
-
-/**
- * Convert platform label to URL slug.
- * @param {string} platform
- * @returns {string}
- */
-export function toPlatformSlug(platform) {
-  return String(platform ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '');
-}
 
 /**
  * Get icon URL for a platform slug.

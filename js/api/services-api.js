@@ -1,20 +1,67 @@
 import { CONFIG } from '../config.js';
 import { isVisible } from '../utils/visibility.js';
 import { toPlatformSlug } from '../utils/platform-icons.js';
+import { assignServiceSlugs } from '../utils/slugs.js';
 
 /** @type {import('../types.js').Service[]|null} */
 let cache = null;
+
+/**
+ * Read prerendered services from #services-data.
+ * @returns {import('../types.js').Service[]|null}
+ */
+function readBootstrap() {
+  if (typeof document === 'undefined') return null;
+  const el = document.getElementById('services-data');
+  if (!el) return null;
+  try {
+    const parsed = JSON.parse(el.textContent || '');
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.services)) return parsed.services;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Read typed-intro phrases baked into the page.
+ * @returns {string[]|null}
+ */
+export function readBootstrapPhrases() {
+  if (typeof document === 'undefined') return null;
+  const el = document.getElementById('services-data');
+  if (!el) return null;
+  try {
+    const parsed = JSON.parse(el.textContent || '');
+    if (parsed && Array.isArray(parsed.phrases) && parsed.phrases.length) {
+      return parsed.phrases;
+    }
+    const services = Array.isArray(parsed) ? parsed : parsed?.services;
+    if (Array.isArray(services) && services.length) {
+      return ['Boost your socials', ...services.map((s) => s.label).filter(Boolean)];
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 /**
  * Parse comma-separated inputs string.
  * @param {string} raw
  * @returns {string[]}
  */
+const INPUT_CANON = {
+  commentslist: 'commentsList',
+};
+
 export function parseInputs(raw) {
   if (!raw || !String(raw).trim()) return [];
   return String(raw)
     .split(',')
     .map((s) => s.trim().toLowerCase())
+    .map((s) => INPUT_CANON[s] ?? s)
     .filter(Boolean);
 }
 
@@ -70,13 +117,10 @@ async function fetchWithTimeout(url) {
 }
 
 /**
- * Fetch and normalize all visible services.
- * @param {{ force?: boolean }} [options]
+ * Fetch services from the live API.
  * @returns {Promise<import('../types.js').Service[]>}
  */
-export async function getServices(options = {}) {
-  if (cache && !options.force) return cache;
-
+async function fetchServicesFromApi() {
   const url = `${CONFIG.API_BASE}?sheet=Services`;
   const response = await fetchWithTimeout(url);
 
@@ -89,8 +133,33 @@ export async function getServices(options = {}) {
     throw new Error('Invalid services response');
   }
 
-  cache = json.data.map(normalizeService).filter((s) => s.visible);
+  cache = assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map(
+    (service) => ({
+      ...service,
+      url: service.url ?? `/${service.platform}/${service.slug}/`,
+    })
+  );
   return cache;
+}
+
+/**
+ * Fetch and normalize all visible services.
+ * Uses the prerendered snapshot when present.
+ * @param {{ force?: boolean }} [options]
+ * @returns {Promise<import('../types.js').Service[]>}
+ */
+export async function getServices(options = {}) {
+  if (cache && !options.force) return cache;
+
+  if (!options.force) {
+    const boot = readBootstrap();
+    if (boot && boot.length) {
+      cache = boot;
+      return cache;
+    }
+  }
+
+  return fetchServicesFromApi();
 }
 
 /**
@@ -131,7 +200,7 @@ export function getUniquePlatforms(services) {
       map.set(service.platform, {
         platform: service.platform,
         platformLabel: service.platformLabel,
-        url: `./${service.platform}/`,
+        url: `/${service.platform}/`,
       });
     }
   });
@@ -145,4 +214,5 @@ export const servicesApi = {
   getService,
   groupByPlatform,
   getUniquePlatforms,
+  readBootstrapPhrases,
 };

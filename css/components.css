@@ -223,6 +223,7 @@
   outline-offset: 4px;
 }
 
+.platform-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;

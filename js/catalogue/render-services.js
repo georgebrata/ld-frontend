@@ -3,18 +3,29 @@ import { getPlatformIconUrl, getPlatformInitials } from '../utils/platform-icons
 import { createEl, clearChildren } from '../utils/dom.js';
 import { renderLoading, renderEmpty, renderError } from '../components/catalogue-states.js';
 import { createCardFrameSvg, formatCardPrice } from '../components/card-frame.js';
-import { openCheckoutModal } from '../checkout/checkout-modal.js';
+import { bindPrefetch } from '../utils/prefetch.js';
+import { toServiceSlug } from '../utils/slugs.js';
 
 /**
- * Render a service card button.
  * @param {import('../types.js').Service} service
- * @returns {HTMLButtonElement}
+ * @returns {string}
+ */
+function serviceHref(service) {
+  if (service.url) return service.url;
+  const slug = service.slug || toServiceSlug(service.service);
+  return `/${service.platform}/${slug}/`;
+}
+
+/**
+ * Render a service card link.
+ * @param {import('../types.js').Service} service
+ * @returns {HTMLAnchorElement}
  */
 function createServiceCard(service) {
-  const card = createEl('button', {
+  const card = createEl('a', {
     className: 'gcard service-card',
-    type: 'button',
-    'aria-label': `Order ${service.label}`,
+    href: serviceHref(service),
+    'aria-label': service.label,
   });
 
   const front = createEl('div', { className: 'gcard-front service-card-front' });
@@ -48,8 +59,6 @@ function createServiceCard(service) {
   front.appendChild(logoWrap);
   card.appendChild(front);
 
-  card.addEventListener('click', () => openCheckoutModal(service, card));
-
   return card;
 }
 
@@ -59,6 +68,11 @@ function createServiceCard(service) {
  * @param {string} platformSlug
  */
 export async function renderPlatformCatalogue(container, platformSlug) {
+  if (container.querySelector('#services .service-card')) {
+    bindPrefetch(container);
+    return;
+  }
+
   renderLoading(container);
 
   const load = async () => {
@@ -77,6 +91,7 @@ export async function renderPlatformCatalogue(container, platformSlug) {
       const grid = createEl('div', { id: 'services' });
       filtered.forEach((service) => grid.appendChild(createServiceCard(service)));
       container.appendChild(grid);
+      bindPrefetch(container);
     } catch {
       renderError(container, () => load());
     }

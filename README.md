@@ -23,15 +23,23 @@ The frontend never contains Stripe secrets, MailerLite credentials, or webhook k
 
 ## Local Development
 
-Serve the project root with any static file server:
+Node 18+ is required for the static page build.
 
 ```bash
+npm run build
 npx serve .
-# or
-python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080` (or the port shown). ES modules require a local server — do not open HTML files directly via `file://`.
+Or `npm run dev` to build and serve. Open `http://localhost:3000` (or the port shown). ES modules require a local server — do not open HTML files directly via `file://`.
+
+`npm run build` fetches the Services sheet, writes `data/services.json`, and generates:
+
+- `/` — platform cards already in the HTML
+- `/{platform}/` — service cards as links
+- `/{platform}/{service-slug}/` — one page per service
+- `sitemap.xml`
+
+Run the build before deploying so the FTP host serves complete pages.
 
 ## Configuration
 
@@ -49,14 +57,17 @@ Edit [`js/config.js`](js/config.js):
 | Module | Responsibility |
 |--------|----------------|
 | `js/app.js` | Page bootstrapping |
-| `js/api/services-api.js` | Fetch & normalize services |
+| `js/api/services-api.js` | Fetch & normalize services (uses `#services-data` snapshot first) |
 | `js/api/orders-api.js` | Create & fetch orders |
 | `js/catalogue/render-home.js` | Homepage platform cards |
 | `js/catalogue/render-services.js` | Platform service cards |
+| `js/pages/service-page.js` | Dedicated service page checkout |
 | `js/checkout/checkout-modal.js` | Accessible checkout modal |
 | `js/checkout/input-renderer.js` | Dynamic form fields |
 | `js/confirmation/confirmation-page.js` | Post-payment confirmation |
-| `plugins/plugins.js` | Character scroll animation (jQuery + Velocity) |
+| `js/ui/scene.js` | Menu, parallax, coat swap |
+| `plugins/plugins.js` | Velocity.js |
+| `scripts/build.mjs` | Fetch services and generate static pages |
 
 ## Services API
 
@@ -164,9 +175,8 @@ Production deploys via GitHub Actions FTP to `like-dealer.com` on push to `main`
 | URL | Purpose |
 |-----|---------|
 | `/` | Homepage — platform picker |
-| `/instagram/` | Instagram services |
-| `/tiktok/` | TikTok services |
-| `/youtube/` | YouTube services |
-| `/facebook/` | Facebook services |
+| `/{platform}/` | Platform service catalogue |
+| `/{platform}/{service-slug}/` | Individual service + checkout |
+| `/why/` | Why Like Dealer |
 | `/confirmation.html` | Order confirmation |
 | `/404.html` | Not found |
