@@ -108,7 +108,6 @@ function normalizeService(row) {
     description: String(row.Description ?? row.description ?? '').trim(),
     price: parsePrice(row.Price ?? row.price),
     inputs: parseInputs(row.Inputs ?? row.inputs ?? ''),
-    socialpanelId: String(row.socialpanelId ?? '').trim(),
     visible: isVisible(row.Visible ?? row.visible),
   };
 }
@@ -231,7 +230,7 @@ function renderMenu(platforms) {
   const items = [
     ['/', 'Home'],
     ['/why/', 'Why'],
-    ...platforms.map((p) => [`/${p.platform}/`, p.platformLabel]),
+    ...platforms.map((p) => [`/?platform=${p.platform}`, p.platformLabel]),
   ];
   return items
     .map(([href, label]) => `<li><a href="${href}" class="menu">${escapeHtml(label)}</a></li>`)
@@ -285,16 +284,27 @@ function fill(template, values) {
 }
 
 async function fetchServices() {
-  const url = `${API_BASE}?sheet=Services`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Services API error: ${response.status}`);
+  try {
+    const url = `${API_BASE}?sheet=Services`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Services API error: ${response.status}`);
+    }
+    const json = await response.json();
+    if (!json.ok || !Array.isArray(json.data)) {
+      throw new Error('Invalid services response');
+    }
+    return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible && s.platform));
+  } catch (err) {
+    const fallbackPath = path.join(ROOT, 'data/services.json');
+    const raw = await readFile(fallbackPath, 'utf8').catch(() => null);
+    if (!raw) throw err;
+    const parsed = JSON.parse(raw);
+    const rows = Array.isArray(parsed) ? parsed : parsed.services;
+    if (!Array.isArray(rows) || !rows.length) throw err;
+    console.warn('Services API unavailable, using data/services.json');
+    return assignServiceSlugs(rows.map(normalizeService).filter((s) => s.visible && s.platform));
   }
-  const json = await response.json();
-  if (!json.ok || !Array.isArray(json.data)) {
-    throw new Error('Invalid services response');
-  }
-  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible && s.platform));
 }
 
 /**
@@ -316,7 +326,45 @@ function uniquePlatforms(services) {
 
 function snapshotJson(services) {
   const phrases = [TAGLINE, ...services.map((s) => s.label).filter(Boolean)];
-  return JSON.stringify({ services, phrases }).replace(/</g, '\\u003c');
+  const publicServices = services.map(({ socialpanelId, ...service }) => service);
+  return JSON.stringify({ services: publicServices, phrases }).replace(/</g, '\\u003c');
+}
+
+const TRUST_COPY = `<h2>What LikeDealer is</h2>
+      <p>LikeDealer is a simple way to buy social-media engagement. You do not need an account. Pick a platform, choose a service, and pay once.</p>
+      <h2>How this page works</h2>
+      <ol>
+        <li>Choose a platform</li>
+        <li>Choose a service</li>
+        <li>Enter the required details and pay securely with Stripe</li>
+      </ol>
+      <h2>Pricing</h2>
+      <p>Any price shown on a card is for guidance. The amount you pay is calculated at checkout and confirmed by Stripe.</p>
+      <h2>Secure payment</h2>
+      <p>Payments are processed by Stripe. LikeDealer never sees your card number.</p>
+      <h2>After you pay</h2>
+      <p>You will get a confirmation email. Your order is then processed. Reaching the success page means payment was received — not that fulfilment is already finished.</p>`;
+
+/**
+ * @param {{ label: string, description: string, price: number|null, url: string }} service
+ */
+function productJsonLd(service) {
+  if (service.price == null) return '';
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: service.label,
+    description:
+      service.description || `Order ${service.label} from Like Dealer.`,
+    url: `${SITE_URL}${service.url}`,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'USD',
+      price: String(service.price),
+      availability: 'https://schema.org/InStock',
+    },
+  };
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
 }
 
 function writeSitemap(platforms, services) {
@@ -397,13 +445,11 @@ async function main() {
     BODY_ATTRS: 'data-page="home"',
     MENU: menu,
     HERO_SVG: heroSvg.trim(),
-    PAGE_TITLE: 'Platforms',
-    CATALOGUE: platforms.length
-      ? renderHomeCards(platforms)
-      : '<div class="catalogue-state"><p>No services are currently available.</p></div>',
-    CONTENT:
-      '<p>Discover our premium social media engagement services designed to skyrocket your reach, engagement, and credibility. Pick a platform and choose the boost that fits your goals.</p>',
+    PAGE_TITLE: 'Boost your socials',
+    CATALOGUE: '<div class="catalogue-state"><p>Loading services…</p></div>',
+    CONTENT: TRUST_COPY,
     SERVICES_JSON: json,
+    JSON_LD: '',
   });
   await writeFile(path.join(ROOT, 'index.html'), homeHtml);
 
@@ -425,12 +471,11 @@ async function main() {
       BODY_ATTRS: `data-page="platform" data-platform="${escapeHtml(platform.platform)}"`,
       MENU: menu,
       HERO_SVG: heroSvg.trim(),
-      PAGE_TITLE: `${platform.platformLabel} Services`,
-      CATALOGUE: filtered.length
-        ? renderServiceCards(filtered)
-        : '<div class="catalogue-state"><p>No services are currently available.</p></div>',
-      CONTENT: `<p><a href="/why/" class="why-page-link">Still posting into the void? Here's why that's optional →</a></p>`,
+      PAGE_TITLE: `${platform.platformLabel} services`,
+      CATALOGUE: '<div class="catalogue-state"><p>Loading services…</p></div>',
+      CONTENT: TRUST_COPY,
       SERVICES_JSON: json,
+      JSON_LD: '',
     });
     await writeFile(path.join(platformDir, 'index.html'), platformHtml);
 
@@ -454,9 +499,10 @@ async function main() {
         MENU: menu,
         HERO_SVG: heroSvg.trim(),
         PAGE_TITLE: service.label,
-        CATALOGUE: renderServiceDetail(service),
-        CONTENT: `<p><a href="/${service.platform}/" class="why-page-link">All ${escapeHtml(service.platformLabel)} services →</a></p>`,
+        CATALOGUE: '<div class="catalogue-state"><p>Loading checkout…</p></div>',
+        CONTENT: TRUST_COPY,
         SERVICES_JSON: json,
+        JSON_LD: productJsonLd(service),
       });
       await writeFile(path.join(serviceDir, 'index.html'), serviceHtml);
     }

@@ -50,16 +50,19 @@
   <script defer src="/plugins/gtm.js"></script>
   <script defer src="/plugins/plugins.js"></script>
   <script defer src="/js/ui/scene.js"></script>
+  {{JSON_LD}}
 </head>
 
 <body class="{{BODY_CLASS}}" {{BODY_ATTRS}}>
+  <a class="skip-link" href="#platforms">Skip to order form</a>
+
   <div id="menu">
     <ul>
       {{MENU}}
     </ul>
   </div>
 
-  <div id="menu-trigger">
+  <div id="menu-trigger" role="button" tabindex="0" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
     <div class="menu-trigger"></div>
     <div class="menu-trigger"></div>
     <div class="menu-trigger"></div>
@@ -88,15 +91,14 @@
 
       <main id="page">
         <h1 class="page-title">{{PAGE_TITLE}}</h1>
-        <div id="catalogue-root" aria-live="polite">{{CATALOGUE}}</div>
-        <section class="content">
+        <div id="order-root" aria-live="polite">{{CATALOGUE}}</div>
+        <section class="content content--trust">
           {{CONTENT}}
         </section>
       </main>
     </div>
   </div>
 
-  <div id="checkout-modal-root" hidden></div>
   <script type="application/json" id="services-data">{{SERVICES_JSON}}</script>
   <script type="module" src="/js/app.js"></script>
 </body>

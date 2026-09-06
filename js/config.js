@@ -1,25 +1,29 @@
 /**
- * Application configuration.
+ * Application configuration. Secrets never belong here.
  * @type {Readonly<{
- *   API_BASE: string,
- *   N8N_CHECKOUT_URL: string,
+ *   API_BASE_URL: string,
+ *   CHECKOUT_WORKER_URL: string,
+ *   SITE_URL: string,
  *   ORDER_ID_PREFIX: string,
  *   DEFAULT_QUANTITY: number,
  *   QUANTITY_STEP: number,
  *   QUANTITY_MIN: number,
+ *   QUANTITY_MAX: number,
  *   FETCH_TIMEOUT_MS: number,
- *   SITE_URL: string
+ *   EMAIL_MAX_LENGTH: number
  * }>}
  */
 export const CONFIG = Object.freeze({
-  API_BASE:
+  API_BASE_URL:
     'https://script.google.com/macros/s/AKfycby3Yg1NEsipYEyQi6Oarl_h5C4-rr40dPQwP9LLttlN-EwTgyynojaHAR7CCjodgyZrvg/exec',
-  /** n8n webhook — set when payment flow is live */
-  N8N_CHECKOUT_URL: '',
+  /** Cloudflare Worker origin, e.g. https://api.like-dealer.com */
+  CHECKOUT_WORKER_URL: '',
+  SITE_URL: 'https://like-dealer.com',
   ORDER_ID_PREFIX: 'LD-',
   DEFAULT_QUANTITY: 1000,
-  QUANTITY_STEP: 1000,
-  QUANTITY_MIN: 1000,
+  QUANTITY_STEP: 100,
+  QUANTITY_MIN: 1,
+  QUANTITY_MAX: 10000000,
   FETCH_TIMEOUT_MS: 15000,
-  SITE_URL: 'https://like-dealer.com',
+  EMAIL_MAX_LENGTH: 254,
 });

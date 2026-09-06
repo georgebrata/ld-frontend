@@ -60,8 +60,10 @@ body.platform-facebook {
   min-width: 220px;
 }
 
-/* Confirmation page */
-body.page-confirmation {
+/* Confirmation / success / cancel */
+body.page-confirmation,
+body.page-success,
+body.page-cancel {
   background: var(--color-bg-home);
   min-width: 0;
   overflow: auto;

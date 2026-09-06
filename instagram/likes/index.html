@@ -51,20 +51,23 @@
   <script defer src="/plugins/gtm.js"></script>
   <script defer src="/plugins/plugins.js"></script>
   <script defer src="/js/ui/scene.js"></script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Instagram Likes","description":"Order Instagram Likes from Like Dealer.","url":"https://like-dealer.com/instagram/likes/","offers":{"@type":"Offer","priceCurrency":"USD","price":"2.2","availability":"https://schema.org/InStock"}}</script>
 </head>
 
 <body class="platform-instagram page-service" data-page="service" data-platform="instagram" data-service-id="01">
+  <a class="skip-link" href="#platforms">Skip to order form</a>
+
   <div id="menu">
     <ul>
       <li><a href="/" class="menu">Home</a></li>
       <li><a href="/why/" class="menu">Why</a></li>
-      <li><a href="/instagram/" class="menu">Instagram</a></li>
-      <li><a href="/tiktok/" class="menu">TikTok</a></li>
-      <li><a href="/youtube/" class="menu">Youtube</a></li>
+      <li><a href="/?platform=instagram" class="menu">Instagram</a></li>
+      <li><a href="/?platform=tiktok" class="menu">TikTok</a></li>
+      <li><a href="/?platform=youtube" class="menu">Youtube</a></li>
     </ul>
   </div>
 
-  <div id="menu-trigger">
+  <div id="menu-trigger" role="button" tabindex="0" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
     <div class="menu-trigger"></div>
     <div class="menu-trigger"></div>
     <div class="menu-trigger"></div>
@@ -225,21 +228,28 @@
 
       <main id="page">
         <h1 class="page-title">Instagram Likes</h1>
-        <div id="catalogue-root" aria-live="polite"><article class="service-detail">
-      <div class="service-detail__logo"><img src="/assets/cardLogos/instagram.svg" alt="Instagram logo" width="70%" /></div>
-      
-      <p class="service-detail__price">$2.2 per 1k</p>
-      <button type="button" class="btn" data-checkout-trigger>Order Instagram Likes</button>
-    </article></div>
-        <section class="content">
-          <p><a href="/instagram/" class="why-page-link">All Instagram services →</a></p>
+        <div id="order-root" aria-live="polite"><div class="catalogue-state"><p>Loading checkout…</p></div></div>
+        <section class="content content--trust">
+          <h2>What LikeDealer is</h2>
+      <p>LikeDealer is a simple way to buy social-media engagement. You do not need an account. Pick a platform, choose a service, and pay once.</p>
+      <h2>How this page works</h2>
+      <ol>
+        <li>Choose a platform</li>
+        <li>Choose a service</li>
+        <li>Enter the required details and pay securely with Stripe</li>
+      </ol>
+      <h2>Pricing</h2>
+      <p>Any price shown on a card is for guidance. The amount you pay is calculated at checkout and confirmed by Stripe.</p>
+      <h2>Secure payment</h2>
+      <p>Payments are processed by Stripe. LikeDealer never sees your card number.</p>
+      <h2>After you pay</h2>
+      <p>You will get a confirmation email. Your order is then processed. Reaching the success page means payment was received — not that fulfilment is already finished.</p>
         </section>
       </main>
     </div>
   </div>
 
-  <div id="checkout-modal-root" hidden></div>
-  <script type="application/json" id="services-data">{"services":[{"id":"01","platform":"instagram","platformLabel":"Instagram","service":"Likes","label":"Instagram Likes","description":"","price":2.2,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"likes","url":"/instagram/likes/"},{"id":"02","platform":"instagram","platformLabel":"Instagram","service":"Followers","label":"Instagram Followers","description":"","price":4.2,"inputs":["username"],"socialpanelId":"","visible":true,"slug":"followers","url":"/instagram/followers/"},{"id":"03","platform":"instagram","platformLabel":"Instagram","service":"Comments","label":"Instagram Comments","description":"","price":7,"inputs":["url","commentsList"],"socialpanelId":"","visible":true,"slug":"comments","url":"/instagram/comments/"},{"id":"04","platform":"tiktok","platformLabel":"TikTok","service":"Likes","label":"TikTok Likes","description":"","price":1.5,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"likes","url":"/tiktok/likes/"},{"id":"05","platform":"tiktok","platformLabel":"TikTok","service":"Followers","label":"TikTok Followers","description":"","price":3.1,"inputs":["username"],"socialpanelId":"","visible":true,"slug":"followers","url":"/tiktok/followers/"},{"id":"06","platform":"youtube","platformLabel":"Youtube","service":"Subscribers","label":"Youtube Subscribers","description":"","price":4,"inputs":["url"],"socialpanelId":"","visible":true,"slug":"subscribers","url":"/youtube/subscribers/"}],"phrases":["Boost your socials","Instagram Likes","Instagram Followers","Instagram Comments","TikTok Likes","TikTok Followers","Youtube Subscribers"]}</script>
+  <script type="application/json" id="services-data">{"services":[{"id":"01","platform":"instagram","platformLabel":"Instagram","service":"Likes","label":"Instagram Likes","description":"","price":2.2,"inputs":["url"],"visible":true,"slug":"likes","url":"/instagram/likes/"},{"id":"02","platform":"instagram","platformLabel":"Instagram","service":"Followers","label":"Instagram Followers","description":"","price":4.2,"inputs":["username"],"visible":true,"slug":"followers","url":"/instagram/followers/"},{"id":"03","platform":"instagram","platformLabel":"Instagram","service":"Comments","label":"Instagram Comments","description":"","price":7,"inputs":["url","commentsList"],"visible":true,"slug":"comments","url":"/instagram/comments/"},{"id":"04","platform":"tiktok","platformLabel":"TikTok","service":"Likes","label":"TikTok Likes","description":"","price":1.5,"inputs":["url"],"visible":true,"slug":"likes","url":"/tiktok/likes/"},{"id":"05","platform":"tiktok","platformLabel":"TikTok","service":"Followers","label":"TikTok Followers","description":"","price":3.1,"inputs":["username"],"visible":true,"slug":"followers","url":"/tiktok/followers/"},{"id":"06","platform":"youtube","platformLabel":"Youtube","service":"Subscribers","label":"Youtube Subscribers","description":"","price":4,"inputs":["url"],"visible":true,"slug":"subscribers","url":"/youtube/subscribers/"}],"phrases":["Boost your socials","Instagram Likes","Instagram Followers","Instagram Comments","TikTok Likes","TikTok Followers","Youtube Subscribers"]}</script>
   <script type="module" src="/js/app.js"></script>
 </body>
 

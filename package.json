@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "node scripts/build.mjs && npx --yes serve ."
+    "dev": "node scripts/build.mjs && npx --yes serve .",
+    "test": "node --test js/utils/*.test.js worker/test/*.test.js",
+    "worker:dev": "npx --yes wrangler dev --config worker/wrangler.toml"
   },
   "engines": {
     "node": ">=18"

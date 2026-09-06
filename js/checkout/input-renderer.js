@@ -32,7 +32,7 @@ const INPUT_REGISTRY = {
     label: 'Quantity',
     type: 'number',
     placeholder: String(CONFIG.DEFAULT_QUANTITY),
-    hint: 'Minimum 1,000.',
+    hint: 'Choose how many you want.',
   },
 };
 
@@ -54,9 +54,10 @@ export function parseInputs(raw) {
  * Render a single form field for an input type.
  * @param {string} type
  * @param {HTMLElement} container
+ * @param {{ min?: number, max?: number, step?: number, value?: number }} [options]
  * @returns {{ field: HTMLElement, input: HTMLInputElement|HTMLTextAreaElement, errorEl: HTMLElement }}
  */
-export function renderInput(type, container) {
+export function renderInput(type, container, options = {}) {
   const config = INPUT_REGISTRY[type] ?? {
     label: type.charAt(0).toUpperCase() + type.slice(1),
     type: 'text',
@@ -82,9 +83,22 @@ export function renderInput(type, container) {
     );
     if (config.placeholder) input.placeholder = config.placeholder;
     if (type === 'quantity') {
-      input.min = String(CONFIG.QUANTITY_MIN);
-      input.step = String(CONFIG.QUANTITY_STEP);
-      input.value = String(CONFIG.DEFAULT_QUANTITY);
+      const min = options.min ?? CONFIG.QUANTITY_MIN;
+      const max = options.max ?? CONFIG.QUANTITY_MAX;
+      const step = options.step ?? CONFIG.QUANTITY_STEP;
+      const value = options.value ?? CONFIG.DEFAULT_QUANTITY;
+      input.min = String(min);
+      input.max = String(max);
+      input.step = String(step);
+      input.value = String(value);
+    }
+    if (type === 'username') {
+      input.autocomplete = 'username';
+      input.spellcheck = false;
+    }
+    if (type === 'email') {
+      input.autocomplete = 'email';
+      input.maxLength = CONFIG.EMAIL_MAX_LENGTH;
     }
   }
 
@@ -118,10 +132,13 @@ export function renderInput(type, container) {
  * @param {HTMLInputElement|HTMLTextAreaElement} input
  * @param {HTMLElement} field
  * @param {HTMLElement} errorEl
+ * @param {{ min?: number, max?: number }} [options]
  * @returns {boolean}
  */
-export function validateField(type, input, field, errorEl) {
-  const result = validateInput(type, input.value);
+export function validateField(type, input, field, errorEl, options = {}) {
+  const value =
+    type === 'username' ? String(input.value ?? '').replace(/^@/, '').trim() : input.value;
+  const result = validateInput(type, value, options);
   if (!result.valid) {
     field.classList.add('form-field--error');
     errorEl.textContent = result.message ?? 'Invalid value';

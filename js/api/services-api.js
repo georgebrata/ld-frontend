@@ -96,9 +96,20 @@ export function normalizeService(row) {
     description: String(row.Description ?? row.description ?? '').trim(),
     price: parsePrice(row.Price ?? row.price),
     inputs: parseInputs(row.Inputs ?? row.inputs ?? ''),
-    socialpanelId: String(row.socialpanelId ?? '').trim(),
     visible: isVisible(row.Visible ?? row.visible),
   };
+}
+
+/**
+ * Strip server-only fields before anything reaches the DOM.
+ * @param {import('../types.js').Service} service
+ * @returns {import('../types.js').Service}
+ */
+export function toPublicService(service) {
+  const { socialpanelId: _hidden, ...pub } = /** @type {import('../types.js').Service & { socialpanelId?: string }} */ (
+    service
+  );
+  return pub;
 }
 
 /**
@@ -121,7 +132,7 @@ async function fetchWithTimeout(url) {
  * @returns {Promise<import('../types.js').Service[]>}
  */
 async function fetchServicesFromApi() {
-  const url = `${CONFIG.API_BASE}?sheet=Services`;
+  const url = `${CONFIG.API_BASE_URL}?sheet=Services`;
   const response = await fetchWithTimeout(url);
 
   if (!response.ok) {
@@ -134,10 +145,11 @@ async function fetchServicesFromApi() {
   }
 
   cache = assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map(
-    (service) => ({
-      ...service,
-      url: service.url ?? `/${service.platform}/${service.slug}/`,
-    })
+    (service) =>
+      toPublicService({
+        ...service,
+        url: service.url ?? `/${service.platform}/${service.slug}/`,
+      })
   );
   return cache;
 }
@@ -154,7 +166,7 @@ export async function getServices(options = {}) {
   if (!options.force) {
     const boot = readBootstrap();
     if (boot && boot.length) {
-      cache = boot;
+      cache = boot.map((service) => toPublicService(service));
       return cache;
     }
   }
@@ -167,10 +179,18 @@ export async function getServices(options = {}) {
  * @param {string} id
  * @returns {Promise<import('../types.js').Service|undefined>}
  */
-export async function getService(id) {
+/**
+ * Get a single visible service by ID.
+ * @param {string} id
+ * @returns {Promise<import('../types.js').Service|undefined>}
+ */
+export async function getServiceById(id) {
   const services = await getServices();
   return services.find((s) => s.id === id);
 }
+
+/** @deprecated Use getServiceById */
+export const getService = getServiceById;
 
 /**
  * Group services by platform slug.
@@ -212,6 +232,7 @@ export const servicesApi = {
   normalizeService,
   getServices,
   getService,
+  getServiceById,
   groupByPlatform,
   getUniquePlatforms,
   readBootstrapPhrases,

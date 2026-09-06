@@ -8,13 +8,7 @@
   font-weight: 400;
 }
 
-* {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+body {
   cursor: default;
 }
 
@@ -24,7 +18,6 @@ select,
 button,
 a,
 label {
-  user-select: auto;
   cursor: pointer;
 }
 
@@ -32,6 +25,24 @@ input,
 textarea,
 select {
   cursor: text;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 14px;
+  background: var(--color-dark);
+  color: var(--color-white);
+  border-radius: 4px;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 12px;
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
 }
 
 a img {
@@ -174,6 +185,11 @@ body {
 #menu-trigger,
 #menu-trigger * {
   cursor: pointer;
+}
+
+#menu-trigger:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 4px;
 }
 
 #menu {
@@ -323,6 +339,11 @@ body {
   margin: 0 auto;
   box-sizing: border-box;
   padding: 90px 140px 150px 460px;
+  opacity: 0;
+}
+
+#page.is-revealed {
+  opacity: 1;
 }
 
 .page-title {
@@ -415,6 +436,10 @@ h6 {
   #intro,
   #background {
     animation: none;
+  }
+
+  #page {
+    opacity: 1;
   }
 }
 

@@ -11,7 +11,6 @@
       "inputs": [
         "url"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "likes",
       "url": "/instagram/likes/"
@@ -27,7 +26,6 @@
       "inputs": [
         "username"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "followers",
       "url": "/instagram/followers/"
@@ -44,7 +42,6 @@
         "url",
         "commentsList"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "comments",
       "url": "/instagram/comments/"
@@ -60,7 +57,6 @@
       "inputs": [
         "url"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "likes",
       "url": "/tiktok/likes/"
@@ -76,7 +72,6 @@
       "inputs": [
         "username"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "followers",
       "url": "/tiktok/followers/"
@@ -92,7 +87,6 @@
       "inputs": [
         "url"
       ],
-      "socialpanelId": "",
       "visible": true,
       "slug": "subscribers",
       "url": "/youtube/subscribers/"
