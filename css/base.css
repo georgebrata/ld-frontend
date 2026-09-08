@@ -3,9 +3,17 @@
   margin: 0;
   padding: 0;
   border: none;
-  outline: none;
   font-family: var(--font-body);
   font-weight: 400;
+}
+
+*:focus {
+  outline: 2px solid var(--color-white);
+  outline-offset: 3px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
 }
 
 body {
@@ -136,6 +144,24 @@ body {
   height: 100%;
 }
 
+#background svg #Opened {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+#background svg #Closed {
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+#wrapper.coat-open #background svg #Opened {
+  opacity: 1;
+}
+
+#wrapper.coat-open #background svg #Closed {
+  opacity: 0;
+}
+
 #menu-trigger {
   width: 32px;
   height: 30px;
@@ -146,6 +172,11 @@ body {
   cursor: pointer;
   z-index: var(--z-menu-trigger);
   animation: page-enter-fade 0.5s ease-out both;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .menu-trigger {
@@ -202,6 +233,13 @@ body {
   opacity: 0;
   overflow: hidden;
   background-color: rgba(0, 0, 0, 0.8);
+  transition: opacity 0.4s cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+#menu.is-open {
+  height: 100vh;
+  height: 100dvh;
+  opacity: 1;
 }
 
 #menu ul {
@@ -340,6 +378,7 @@ body {
   box-sizing: border-box;
   padding: 90px 140px 150px 460px;
   opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.455, 0.03, 0.515, 0.955);
 }
 
 #page.is-revealed {

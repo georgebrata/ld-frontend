@@ -198,7 +198,9 @@ export async function initOnePageOrder(preset = {}) {
       const priceEl = createEl('div', {
         className: 'service-title gcard-value service-card-value',
       });
-      priceEl.appendChild(createEl('p', {}, formatCardPrice(service.price)));
+      priceEl.appendChild(
+        createEl('p', {}, service.purchasable ? formatCardPrice(service.price) : 'Unavailable')
+      );
       logo.appendChild(priceEl);
       front.appendChild(logo);
       card.appendChild(front);
@@ -213,9 +215,11 @@ export async function initOnePageOrder(preset = {}) {
    */
   function selectPlatform(platform, opts = {}) {
     selectedPlatform = platform.platform;
-    selectedServiceId = '';
-    selectedSlug = '';
-    syncHomeUrl(selectedPlatform);
+    if (!opts.keepService) {
+      selectedServiceId = '';
+      selectedSlug = '';
+    }
+    syncHomeUrl(selectedPlatform, selectedSlug);
 
     platformsGrid.querySelectorAll('[role="radio"]').forEach((el) => {
       const isCurrent = el.getAttribute('data-platform') === platform.platform;
@@ -226,8 +230,10 @@ export async function initOnePageOrder(preset = {}) {
 
     renderServices(platform.platform);
     showStep(servicesSection);
-    checkoutSection.hidden = true;
-    clearChildren(checkoutRoot);
+    if (!opts.keepService) {
+      checkoutSection.hidden = true;
+      clearChildren(checkoutRoot);
+    }
     if (opts.scroll !== false) scrollToSection(servicesSection);
   }
 
@@ -288,11 +294,17 @@ export async function initOnePageOrder(preset = {}) {
     if (platform) {
       const pendingServiceId = selectedServiceId;
       const pendingSlug = selectedSlug;
-      selectPlatform(platform, { scroll: false });
+      selectPlatform(platform, {
+        scroll: false,
+        keepService: Boolean(pendingServiceId || pendingSlug),
+      });
       const service = services.find(
         (s) =>
           s.platform === selectedPlatform &&
-          (s.id === pendingServiceId || s.slug === pendingSlug)
+          (s.id === pendingServiceId ||
+            s.slug === pendingSlug ||
+            s.id === pendingSlug ||
+            String(s.service || '').toLowerCase() === String(pendingSlug).toLowerCase())
       );
       if (service) {
         await selectService(service, { scroll: false });

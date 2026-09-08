@@ -1,15 +1,13 @@
 import { CONFIG } from '../config.js';
+import { invokeFunction } from '../lib/supabase-client.js';
 import { isVisible } from '../utils/visibility.js';
 import { toPlatformSlug } from '../utils/platform-icons.js';
 import { assignServiceSlugs } from '../utils/slugs.js';
+import { parseInputList } from '../utils/inputs.js';
 
 /** @type {import('../types.js').Service[]|null} */
 let cache = null;
 
-/**
- * Read prerendered services from #services-data.
- * @returns {import('../types.js').Service[]|null}
- */
 function readBootstrap() {
   if (typeof document === 'undefined') return null;
   const el = document.getElementById('services-data');
@@ -24,23 +22,13 @@ function readBootstrap() {
   return null;
 }
 
-/**
- * Read typed-intro phrases baked into the page.
- * @returns {string[]|null}
- */
 export function readBootstrapPhrases() {
   if (typeof document === 'undefined') return null;
   const el = document.getElementById('services-data');
   if (!el) return null;
   try {
     const parsed = JSON.parse(el.textContent || '');
-    if (parsed && Array.isArray(parsed.phrases) && parsed.phrases.length) {
-      return parsed.phrases;
-    }
-    const services = Array.isArray(parsed) ? parsed : parsed?.services;
-    if (Array.isArray(services) && services.length) {
-      return ['Boost your socials', ...services.map((s) => s.label).filter(Boolean)];
-    }
+    if (parsed && Array.isArray(parsed.phrases) && parsed.phrases.length) return parsed.phrases;
   } catch {
     return null;
   }
@@ -48,155 +36,104 @@ export function readBootstrapPhrases() {
 }
 
 /**
- * Parse comma-separated inputs string.
- * @param {string} raw
- * @returns {string[]}
- */
-const INPUT_CANON = {
-  commentslist: 'commentsList',
-};
-
-export function parseInputs(raw) {
-  if (!raw || !String(raw).trim()) return [];
-  return String(raw)
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .map((s) => INPUT_CANON[s] ?? s)
-    .filter(Boolean);
-}
-
-/**
- * Parse price from API value.
- * @param {unknown} value
- * @returns {number|null}
- */
-function parsePrice(value) {
-  if (value == null || value === '') return null;
-  const num = Number(value);
-  return Number.isFinite(num) && num >= 0 ? num : null;
-}
-
-/**
- * Normalize a raw API service row.
+ * Normalize a public catalogue / sheet row.
  * @param {Record<string, unknown>} row
- * @returns {import('../types.js').Service}
  */
 export function normalizeService(row) {
-  const platformLabel = String(row.Platform ?? row.platform ?? '').trim();
-  const platform = toPlatformSlug(platformLabel);
-  const service = String(row.Service ?? row.service ?? '').trim();
-  const id = String(row.ID ?? row.id ?? row.serviceId ?? '').trim();
-
+  const platformLabel = String(row.platformLabel ?? row.Platform ?? row.platform ?? '').trim();
+  const platform = toPlatformSlug(String(row.platform ?? platformLabel));
+  const service = String(row.service ?? row.Service ?? '').trim();
+  const id = String(row.id ?? row.ID ?? row.serviceId ?? '').trim();
+  const listed = isVisible(row.Visible ?? row.visible ?? true);
+  const enabled = row.enabled == null ? listed : Boolean(row.enabled);
   return {
     id,
     platform,
     platformLabel: platformLabel || platform,
     service,
-    label: `${platformLabel} ${service}`.trim(),
-    description: String(row.Description ?? row.description ?? '').trim(),
-    price: parsePrice(row.Price ?? row.price),
-    inputs: parseInputs(row.Inputs ?? row.inputs ?? ''),
-    visible: isVisible(row.Visible ?? row.visible),
+    label: String(row.label ?? `${platformLabel} ${service}`.trim()),
+    description: String(row.description ?? row.Description ?? '').trim(),
+    type: String(row.type ?? ''),
+    inputs: parseInputList(row.inputs ?? row.Inputs ?? ''),
+    visible: listed,
+    enabled,
+    purchasable: enabled && row.purchasable === true,
+    quantityMin: row.quantityMin == null ? null : Number(row.quantityMin),
+    quantityMax: row.quantityMax == null ? null : Number(row.quantityMax),
+    quantityStep: row.quantityStep == null ? 1 : Number(row.quantityStep),
+    quantityDefault: row.quantityDefault == null ? null : Number(row.quantityDefault),
+    currency: String(row.currency ?? 'USD'),
+    retailRateMinor: row.retailRateMinor == null ? null : Number(row.retailRateMinor),
+    rateUnit: String(row.rateUnit ?? ''),
+    quantityMode:
+      row.quantityMode != null && String(row.quantityMode)
+        ? String(row.quantityMode)
+        : parseInputList(row.inputs ?? row.Inputs ?? '').includes('comments')
+          ? 'from_comments'
+          : 'required',
+    price: row.price == null ? null : Number(row.price),
+    slug: row.slug ? String(row.slug) : undefined,
+    url: row.url ? String(row.url) : undefined,
   };
 }
 
-/**
- * Strip server-only fields before anything reaches the DOM.
- * @param {import('../types.js').Service} service
- * @returns {import('../types.js').Service}
- */
 export function toPublicService(service) {
-  const { socialpanelId: _hidden, ...pub } = /** @type {import('../types.js').Service & { socialpanelId?: string }} */ (
-    service
-  );
+  const { socialpanelId: _hidden, providerServiceId: _p, ...pub } = /** @type {any} */ (service);
   return pub;
 }
 
-/**
- * Fetch with timeout.
- * @param {string} url
- * @returns {Promise<Response>}
- */
-async function fetchWithTimeout(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
+export function parseInputs(raw) {
+  return parseInputList(raw);
 }
 
-/**
- * Fetch services from the live API.
- * @returns {Promise<import('../types.js').Service[]>}
- */
-async function fetchServicesFromApi() {
-  const url = `${CONFIG.API_BASE_URL}?sheet=Services`;
-  const response = await fetchWithTimeout(url);
-
-  if (!response.ok) {
-    throw new Error(`Services API error: ${response.status}`);
-  }
-
-  const json = await response.json();
-  if (!json.ok || !Array.isArray(json.data)) {
+async function fetchLiveCatalogue() {
+  const { response, json } = await invokeFunction('catalogue', { method: 'GET' });
+  if (!response.ok || !json.ok || !Array.isArray(json.data)) {
     throw new Error('Invalid services response');
   }
-
-  cache = assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map(
-    (service) =>
-      toPublicService({
-        ...service,
-        url: service.url ?? `/${service.platform}/${service.slug}/`,
-      })
+  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map((service) =>
+    toPublicService({
+      ...service,
+      url: service.url ?? `/${service.platform}/${service.slug}/`,
+    })
   );
-  return cache;
 }
 
-/**
- * Fetch and normalize all visible services.
- * Uses the prerendered snapshot when present.
- * @param {{ force?: boolean }} [options]
- * @returns {Promise<import('../types.js').Service[]>}
- */
 export async function getServices(options = {}) {
   if (cache && !options.force) return cache;
 
   if (!options.force) {
+    try {
+      if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
+        cache = await fetchLiveCatalogue();
+        return cache;
+      }
+    } catch {
+      /* fall through to bootstrap */
+    }
     const boot = readBootstrap();
     if (boot && boot.length) {
-      cache = boot.map((service) => toPublicService(service));
+      cache = assignServiceSlugs(boot.map((service) => toPublicService(normalizeService(service))));
       return cache;
     }
   }
 
-  return fetchServicesFromApi();
+  if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
+    cache = await fetchLiveCatalogue();
+    return cache;
+  }
+
+  throw new Error('Catalogue is not configured.');
 }
 
-/**
- * Get a single service by ID.
- * @param {string} id
- * @returns {Promise<import('../types.js').Service|undefined>}
- */
-/**
- * Get a single visible service by ID.
- * @param {string} id
- * @returns {Promise<import('../types.js').Service|undefined>}
- */
 export async function getServiceById(id) {
   const services = await getServices();
   return services.find((s) => s.id === id);
 }
 
-/** @deprecated Use getServiceById */
+/** @deprecated */
 export const getService = getServiceById;
 
-/**
- * Group services by platform slug.
- * @param {import('../types.js').Service[]} services
- * @returns {Record<string, import('../types.js').Service[]>}
- */
 export function groupByPlatform(services) {
   /** @type {Record<string, import('../types.js').Service[]>} */
   const groups = {};
@@ -207,11 +144,6 @@ export function groupByPlatform(services) {
   return groups;
 }
 
-/**
- * Get unique platforms from services.
- * @param {import('../types.js').Service[]} services
- * @returns {import('../types.js').PlatformSummary[]}
- */
 export function getUniquePlatforms(services) {
   /** @type {Map<string, import('../types.js').PlatformSummary>} */
   const map = new Map();

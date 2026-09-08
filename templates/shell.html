@@ -24,17 +24,15 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="{{CANONICAL}}" />
 
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; frame-src https://js.stripe.com https://checkout.stripe.com; upgrade-insecure-requests" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://script.google.com" />
-  <link rel="preconnect" href="https://ajax.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
 
   <link rel="preload" href="/assets/like-dealer-logo.svg" as="image" />
   <link rel="preload" href="/assets/scroll-icon.svg" as="image" />
-  <link rel="modulepreload" href="/js/app.js" />
+  <link rel="modulepreload" href="/js/app.js?v=20260908d" />
   {{RESOURCE_HINTS}}
 
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
@@ -46,27 +44,23 @@
   <meta name="msapplication-TileColor" content="#da532c" />
   <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
 
-  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-  <script defer src="/plugins/gtm.js"></script>
-  <script defer src="/plugins/plugins.js"></script>
-  <script defer src="/js/ui/scene.js"></script>
   {{JSON_LD}}
 </head>
 
 <body class="{{BODY_CLASS}}" {{BODY_ATTRS}}>
   <a class="skip-link" href="#platforms">Skip to order form</a>
 
-  <div id="menu">
+  <nav id="menu" aria-label="Site">
     <ul>
       {{MENU}}
     </ul>
-  </div>
+  </nav>
 
-  <div id="menu-trigger" role="button" tabindex="0" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-  </div>
+  <button type="button" id="menu-trigger" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+  </button>
 
   <div id="wrapper">
     <div id="inner">
@@ -100,7 +94,8 @@
   </div>
 
   <script type="application/json" id="services-data">{{SERVICES_JSON}}</script>
-  <script type="module" src="/js/app.js"></script>
+  <script src="/js/ui/scene.js?v=20260908b"></script>
+  <script type="module" src="/js/app.js?v=20260908d"></script>
 </body>
 
 </html>

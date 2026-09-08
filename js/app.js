@@ -1,10 +1,8 @@
 import { initTypedIntro } from './components/typed-intro.js';
 import { initOnePageOrder } from './order/one-page.js';
 import { initSuccessPage } from './pages/success-page.js';
+import { initCancelPage } from './pages/cancel-page.js';
 
-/**
- * Bootstrap page-specific functionality.
- */
 function init() {
   initTypedIntro();
 
@@ -21,6 +19,11 @@ function init() {
 
   if (pageType === 'success') {
     initSuccessPage();
+    return;
+  }
+
+  if (pageType === 'cancel') {
+    initCancelPage();
   }
 }
 

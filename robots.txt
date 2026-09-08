@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /success/
 Disallow: /cancel/
+Disallow: /confirmation.html
 
 Sitemap: https://like-dealer.com/sitemap.xml

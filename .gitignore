@@ -1,6 +1,15 @@
 node_modules/
 .DS_Store
-.dev.vars
-.wrangler/
+supabase/.env
 worker/.dev.vars
 worker/.wrangler/
+.wrangler/
+tmp-deploy/
+
+.projects/cache
+.projects/vault
+.projects/state.test.json
+.projects/state.local.test.json
+.env
+.env.*
+!.env.example

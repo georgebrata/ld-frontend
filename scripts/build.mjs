@@ -1,11 +1,11 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RETAIL_CATALOGUE } from '../supabase/functions/_shared/retail-catalogue.js';
+import { parseInputList } from '../supabase/functions/_shared/inputs.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE_URL = 'https://like-dealer.com';
-const API_BASE =
-  'https://script.google.com/macros/s/AKfycby3Yg1NEsipYEyQi6Oarl_h5C4-rr40dPQwP9LLttlN-EwTgyynojaHAR7CCjodgyZrvg/exec';
 const TAGLINE = 'Boost your socials';
 const KNOWN_ICONS = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 const THEME_COLORS = {
@@ -81,13 +81,7 @@ function parsePrice(value) {
  * @returns {string[]}
  */
 function parseInputs(raw) {
-  if (!raw || !String(raw).trim()) return [];
-  const canon = { commentslist: 'commentsList' };
-  return String(raw)
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .map((s) => canon[s] ?? s)
-    .filter(Boolean);
+  return parseInputList(raw);
 }
 
 /**
@@ -138,12 +132,13 @@ function assignServiceSlugs(services) {
   });
 }
 
-/**
- * @param {number|null} price
- */
-function formatCardPrice(price) {
-  if (price == null) return 'Price at checkout';
-  return `$${price} per 1k`;
+function formatCardPrice(service) {
+  if (service.retailRateMinor == null && service.price == null) return 'Price at checkout';
+  if (service.rateUnit === 'per_comment') return 'Priced per comment';
+  if (service.rateUnit === 'package') return 'Package price at checkout';
+  if (service.rateUnit === 'per_1000') return 'Priced per 1,000';
+  if (service.price != null) return `$${service.price} per 1k`;
+  return 'Price at checkout';
 }
 
 function cardFrameSvg() {
@@ -198,7 +193,7 @@ function renderServiceCards(services) {
             <div class="service-title gcard-value gcard-type service-card-type"><p>${escapeHtml(service.service)}</p></div>
             ${icon}
             ${desc}
-            <div class="service-title gcard-value service-card-value"><p>${escapeHtml(formatCardPrice(service.price))}</p></div>
+            <div class="service-title gcard-value service-card-value"><p>${escapeHtml(formatCardPrice(service))}</p></div>
           </div>
         </div>
       </a>`;
@@ -218,7 +213,7 @@ function renderServiceDetail(service) {
   return `<article class="service-detail">
       <div class="service-detail__logo">${icon}</div>
       ${desc}
-      <p class="service-detail__price">${escapeHtml(formatCardPrice(service.price))}</p>
+      <p class="service-detail__price">${escapeHtml(formatCardPrice(service))}</p>
       <button type="button" class="btn" data-checkout-trigger>Order ${escapeHtml(service.label)}</button>
     </article>`;
 }
@@ -284,27 +279,31 @@ function fill(template, values) {
 }
 
 async function fetchServices() {
-  try {
-    const url = `${API_BASE}?sheet=Services`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Services API error: ${response.status}`);
+  const sheetUrl = process.env.RETAIL_CATALOGUE_URL;
+  if (sheetUrl) {
+    try {
+      const response = await fetch(sheetUrl);
+      if (response.ok) {
+        const json = await response.json();
+        const { adaptSheetCatalogue } = await import('../supabase/functions/_shared/retail-adapter.js');
+        const adapted = adaptSheetCatalogue(json);
+        if (adapted.length) {
+          return assignServiceSlugs(adapted.filter((s) => s.visible && s.platform));
+        }
+      }
+    } catch (err) {
+      console.warn('Retail catalogue URL failed, using bundled catalogue', err instanceof Error ? err.message : err);
     }
-    const json = await response.json();
-    if (!json.ok || !Array.isArray(json.data)) {
-      throw new Error('Invalid services response');
-    }
-    return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible && s.platform));
-  } catch (err) {
-    const fallbackPath = path.join(ROOT, 'data/services.json');
-    const raw = await readFile(fallbackPath, 'utf8').catch(() => null);
-    if (!raw) throw err;
-    const parsed = JSON.parse(raw);
-    const rows = Array.isArray(parsed) ? parsed : parsed.services;
-    if (!Array.isArray(rows) || !rows.length) throw err;
-    console.warn('Services API unavailable, using data/services.json');
-    return assignServiceSlugs(rows.map(normalizeService).filter((s) => s.visible && s.platform));
   }
+
+  return assignServiceSlugs(
+    RETAIL_CATALOGUE.filter((s) => s.visible && s.platform).map((row) => ({
+      ...row,
+      label: `${row.platformLabel} ${row.service}`.trim(),
+      price: null,
+      url: `/${row.platform}/${row.service.toLowerCase()}/`,
+    }))
+  );
 }
 
 /**
@@ -326,7 +325,11 @@ function uniquePlatforms(services) {
 
 function snapshotJson(services) {
   const phrases = [TAGLINE, ...services.map((s) => s.label).filter(Boolean)];
-  const publicServices = services.map(({ socialpanelId, ...service }) => service);
+  const publicServices = services.map(({ socialpanelId, ...service }) => ({
+    ...service,
+    purchasable: false,
+    enabled: Boolean(service.visible),
+  }));
   return JSON.stringify({ services: publicServices, phrases }).replace(/</g, '\\u003c');
 }
 
@@ -339,11 +342,11 @@ const TRUST_COPY = `<h2>What LikeDealer is</h2>
         <li>Enter the required details and pay securely with Stripe</li>
       </ol>
       <h2>Pricing</h2>
-      <p>Any price shown on a card is for guidance. The amount you pay is calculated at checkout and confirmed by Stripe.</p>
+      <p>Any price shown on a card is guidance. The amount you pay is calculated on the server at checkout and confirmed by Stripe.</p>
       <h2>Secure payment</h2>
-      <p>Payments are processed by Stripe. LikeDealer never sees your card number.</p>
+      <p>Payments are processed by Stripe. LikeDealer never sees your card number. We never ask for social-media passwords.</p>
       <h2>After you pay</h2>
-      <p>You will get a confirmation email. Your order is then processed. Reaching the success page means payment was received — not that fulfilment is already finished.</p>`;
+      <p>Paid orders are submitted to the fulfilment provider automatically. Reaching the success page is not required for that work, and it is not proof that delivery is finished. Refunds are handled by support after review — a provider cancellation does not itself refund Stripe.</p>`;
 
 /**
  * @param {{ label: string, description: string, price: number|null, url: string }} service
@@ -431,7 +434,10 @@ async function main() {
   const json = snapshotJson(services);
 
   await mkdir(path.join(ROOT, 'data'), { recursive: true });
-  await writeFile(path.join(ROOT, 'data/services.json'), `${JSON.stringify({ services }, null, 2)}\n`);
+  await writeFile(
+    path.join(ROOT, 'data/services.json'),
+    `${JSON.stringify({ services: services.map(({ socialpanelId, ...service }) => service) }, null, 2)}\n`
+  );
 
   const homeHtml = fill(shell, {
     TITLE: 'Like Dealer — Boost Your Socials',
@@ -446,7 +452,7 @@ async function main() {
     MENU: menu,
     HERO_SVG: heroSvg.trim(),
     PAGE_TITLE: 'Boost your socials',
-    CATALOGUE: '<div class="catalogue-state"><p>Loading services…</p></div>',
+    CATALOGUE: `<noscript>${renderHomeCards(platforms)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
     CONTENT: TRUST_COPY,
     SERVICES_JSON: json,
     JSON_LD: '',
@@ -472,7 +478,7 @@ async function main() {
       MENU: menu,
       HERO_SVG: heroSvg.trim(),
       PAGE_TITLE: `${platform.platformLabel} services`,
-      CATALOGUE: '<div class="catalogue-state"><p>Loading services…</p></div>',
+      CATALOGUE: `<noscript>${renderServiceCards(filtered)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
       CONTENT: TRUST_COPY,
       SERVICES_JSON: json,
       JSON_LD: '',
@@ -499,7 +505,7 @@ async function main() {
         MENU: menu,
         HERO_SVG: heroSvg.trim(),
         PAGE_TITLE: service.label,
-        CATALOGUE: '<div class="catalogue-state"><p>Loading checkout…</p></div>',
+        CATALOGUE: `<noscript>${renderServiceDetail(service)}</noscript><div class="catalogue-state"><p>Loading checkout…</p></div>`,
         CONTENT: TRUST_COPY,
         SERVICES_JSON: json,
         JSON_LD: productJsonLd(service),

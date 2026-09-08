@@ -1,4 +1,5 @@
 import { CONFIG } from '../config.js';
+import { canonicalInputName } from '../utils/inputs.js';
 import { validateInput } from '../utils/validation.js';
 import { createEl } from '../utils/dom.js';
 
@@ -8,163 +9,178 @@ const INPUT_REGISTRY = {
     label: 'Post URL',
     type: 'url',
     placeholder: 'https://instagram.com/p/...',
-    hint: 'Link to the post you want to boost.',
+    hint: 'Link to the public post you want to boost.',
   },
   username: {
     label: 'Username',
     type: 'text',
     placeholder: '@yourusername',
-    hint: 'Your profile username without @.',
+    hint: 'Your public profile username. We never ask for a password.',
   },
-  commentsList: {
+  comments: {
     label: 'Comments',
     type: 'textarea',
     placeholder: 'One comment per line',
-    hint: 'Enter each comment on a new line.',
+    hint: 'Enter each comment on a new line. Empty lines are ignored.',
+  },
+  usernames: {
+    label: 'Usernames',
+    type: 'textarea',
+    placeholder: 'One username per line',
+    hint: 'One username per line.',
+  },
+  hashtags: {
+    label: 'Hashtags',
+    type: 'textarea',
+    placeholder: 'One hashtag per line',
+    hint: 'One hashtag per line.',
+  },
+  hashtag: {
+    label: 'Hashtag',
+    type: 'text',
+    placeholder: 'hashtag',
+    hint: 'Hashtag without #.',
+  },
+  media: {
+    label: 'Media URL',
+    type: 'url',
+    placeholder: 'https://…',
+    hint: 'Link to the media used for this service.',
+  },
+  groups: {
+    label: 'Groups',
+    type: 'textarea',
+    placeholder: 'One group per line',
+    hint: 'One group per line.',
   },
   email: {
     label: 'Email',
     type: 'email',
     placeholder: 'you@example.com',
-    hint: 'We will send your confirmation here.',
+    hint: 'We will send your payment receipt here.',
   },
   quantity: {
     label: 'Quantity',
     type: 'number',
-    placeholder: String(CONFIG.DEFAULT_QUANTITY),
-    hint: 'Choose how many you want.',
+    placeholder: '1000',
+    hint: 'Choose how many you want. Limits are shown below.',
   },
 };
 
 /**
- * Parse inputs string into array of types.
  * @param {string|string[]} raw
  * @returns {string[]}
  */
 export function parseInputs(raw) {
-  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw)) return raw.map((item) => canonicalInputName(item) || String(item));
   if (!raw || !String(raw).trim()) return [];
   return String(raw)
     .split(',')
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => canonicalInputName(s))
     .filter(Boolean);
 }
 
 /**
- * Render a single form field for an input type.
  * @param {string} type
  * @param {HTMLElement} container
- * @param {{ min?: number, max?: number, step?: number, value?: number }} [options]
- * @returns {{ field: HTMLElement, input: HTMLInputElement|HTMLTextAreaElement, errorEl: HTMLElement }}
+ * @param {{ min?: number, max?: number, step?: number, value?: number|string }} [options]
  */
 export function renderInput(type, container, options = {}) {
-  const config = INPUT_REGISTRY[type] ?? {
-    label: type.charAt(0).toUpperCase() + type.slice(1),
+  const canonical = canonicalInputName(type) || type;
+  const config = INPUT_REGISTRY[canonical] ?? {
+    label: canonical.charAt(0).toUpperCase() + canonical.slice(1),
     type: 'text',
     placeholder: '',
   };
 
-  const field = createEl('div', { className: 'form-field', 'data-input-type': type });
-  const id = `checkout-${type}-${Math.random().toString(36).slice(2, 8)}`;
-
-  const label = createEl('label', { for: id }, config.label);
-  field.appendChild(label);
+  const field = createEl('div', { className: 'form-field', 'data-input-type': canonical });
+  const id = `checkout-${canonical}-${Math.random().toString(36).slice(2, 8)}`;
+  field.appendChild(createEl('label', { for: id }, config.label));
 
   /** @type {HTMLInputElement|HTMLTextAreaElement} */
   let input;
-
   if (config.type === 'textarea') {
-    input = /** @type {HTMLTextAreaElement} */ (createEl('textarea', { id, name: type }));
+    input = /** @type {HTMLTextAreaElement} */ (createEl('textarea', { id, name: canonical }));
     if (config.placeholder) input.placeholder = config.placeholder;
   } else {
-    const inputType = config.type === 'number' ? 'number' : config.type;
-    input = /** @type {HTMLInputElement} */ (
-      createEl('input', { id, name: type, type: inputType })
-    );
+    input = /** @type {HTMLInputElement} */ (createEl('input', { id, name: canonical, type: config.type }));
     if (config.placeholder) input.placeholder = config.placeholder;
-    if (type === 'quantity') {
-      const min = options.min ?? CONFIG.QUANTITY_MIN;
-      const max = options.max ?? CONFIG.QUANTITY_MAX;
-      const step = options.step ?? CONFIG.QUANTITY_STEP;
-      const value = options.value ?? CONFIG.DEFAULT_QUANTITY;
+    if (canonical === 'quantity') {
+      const min = options.min ?? 1;
+      const max = options.max ?? 10_000_000;
+      const step = options.step ?? 1;
       input.min = String(min);
       input.max = String(max);
       input.step = String(step);
-      input.value = String(value);
+      if (options.value != null) input.value = String(options.value);
     }
-    if (type === 'username') {
+    if (canonical === 'username') {
       input.autocomplete = 'username';
       input.spellcheck = false;
     }
-    if (type === 'email') {
+    if (canonical === 'email') {
       input.autocomplete = 'email';
       input.maxLength = CONFIG.EMAIL_MAX_LENGTH;
     }
+    if (options.value != null && canonical !== 'quantity') input.value = String(options.value);
   }
 
   input.setAttribute('aria-required', 'true');
   field.appendChild(input);
 
   if (config.hint) {
-    const hint = createEl('span', { className: 'visually-hidden', id: `${id}-hint` }, config.hint);
+    const hint = createEl('span', { className: 'field-hint', id: `${id}-hint` }, config.hint);
     field.appendChild(hint);
     input.setAttribute('aria-describedby', `${id}-hint ${id}-error`);
   } else {
     input.setAttribute('aria-describedby', `${id}-error`);
   }
 
-  const errorEl = createEl('span', {
-    className: 'form-error',
-    id: `${id}-error`,
-    role: 'alert',
-  });
+  const errorEl = createEl('span', { className: 'form-error', id: `${id}-error`, role: 'alert' });
   errorEl.hidden = true;
   field.appendChild(errorEl);
-
   container.appendChild(field);
-
   return { field, input, errorEl };
 }
 
 /**
- * Validate and show error on a field.
  * @param {string} type
  * @param {HTMLInputElement|HTMLTextAreaElement} input
  * @param {HTMLElement} field
  * @param {HTMLElement} errorEl
- * @param {{ min?: number, max?: number }} [options]
- * @returns {boolean}
+ * @param {{ min?: number, max?: number, platform?: string }} [options]
  */
 export function validateField(type, input, field, errorEl, options = {}) {
-  const value =
-    type === 'username' ? String(input.value ?? '').replace(/^@/, '').trim() : input.value;
-  const result = validateInput(type, value, options);
+  const canonical = canonicalInputName(type) || type;
+  const value = canonical === 'username' ? String(input.value ?? '').replace(/^@/, '') : input.value;
+  const result = validateInput(canonical, value, options);
   if (!result.valid) {
     field.classList.add('form-field--error');
     errorEl.textContent = result.message ?? 'Invalid value';
     errorEl.hidden = false;
+    input.setAttribute('aria-invalid', 'true');
     return false;
   }
   field.classList.remove('form-field--error');
   errorEl.textContent = '';
   errorEl.hidden = true;
+  input.removeAttribute('aria-invalid');
   return true;
 }
 
 /**
- * Collect values from rendered service inputs (excludes email/quantity).
  * @param {HTMLElement} form
  * @param {string[]} serviceInputTypes
- * @returns {Record<string, string>}
  */
 export function collectServiceInputValues(form, serviceInputTypes) {
   /** @type {Record<string, string>} */
   const values = {};
   serviceInputTypes.forEach((type) => {
+    const canonical = canonicalInputName(type) || type;
     const input = /** @type {HTMLInputElement|HTMLTextAreaElement|null} */ (
-      form.querySelector(`[name="${type}"]`)
+      form.querySelector(`[name="${canonical}"]`)
     );
-    if (input) values[type] = input.value.trim();
+    if (input) values[canonical] = input.value;
   });
   return values;
 }

@@ -1,28 +1,29 @@
 import { CONFIG } from '../config.js';
+import { canonicalInputName, normalizeNewlineList } from './inputs.js';
+import { validatePlatformUrl } from './urls.js';
 
 /** @typedef {{ valid: boolean, message?: string }} ValidationResult */
 
-const URL_PATTERN = /^https?:\/\/.+/i;
 const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Validate a single input value by type.
+ * Validate a single input value by canonical type.
  * @param {string} type
  * @param {string} value
- * @param {{ min?: number, max?: number }} [options]
+ * @param {{ min?: number, max?: number, platform?: string }} [options]
  * @returns {ValidationResult}
  */
 export function validateInput(type, value, options = {}) {
+  const canonical = canonicalInputName(type) || type;
   const trimmed = String(value ?? '').trim();
 
-  switch (type) {
-    case 'url':
-      if (!trimmed) return { valid: false, message: 'Please enter a URL.' };
-      if (!URL_PATTERN.test(trimmed)) {
-        return { valid: false, message: 'Please enter a valid http(s) URL.' };
-      }
+  switch (canonical) {
+    case 'url': {
+      const check = validatePlatformUrl(value, options.platform);
+      if (!check.ok) return { valid: false, message: check.error };
       return { valid: true };
+    }
 
     case 'username': {
       const username = trimmed.replace(/^@/, '');
@@ -33,12 +34,14 @@ export function validateInput(type, value, options = {}) {
       return { valid: true };
     }
 
-    case 'commentsList':
-      if (!trimmed) return { valid: false, message: 'Please enter at least one comment.' };
-      if (trimmed.length > 2000) {
-        return { valid: false, message: 'Comments must be 2,000 characters or fewer.' };
+    case 'comments': {
+      const list = normalizeNewlineList(value);
+      if (!list.count) return { valid: false, message: 'Please enter at least one comment.' };
+      if (list.text.length > 8000) {
+        return { valid: false, message: 'Comments must be 8,000 characters or fewer.' };
       }
       return { valid: true };
+    }
 
     case 'email':
       if (!trimmed) return { valid: false, message: 'Please enter your email.' };
@@ -51,8 +54,8 @@ export function validateInput(type, value, options = {}) {
       return { valid: true };
 
     case 'quantity': {
-      const min = Number.isInteger(options.min) ? options.min : CONFIG.QUANTITY_MIN;
-      const max = Number.isInteger(options.max) ? options.max : CONFIG.QUANTITY_MAX;
+      const min = Number.isInteger(options.min) ? options.min : 1;
+      const max = Number.isInteger(options.max) ? options.max : 10_000_000;
       const num = Number(trimmed);
       if (!Number.isInteger(num)) {
         return { valid: false, message: 'Quantity must be a whole number.' };
@@ -73,10 +76,8 @@ export function validateInput(type, value, options = {}) {
 }
 
 /**
- * Format a display order ID.
  * @param {string} rawId
  * @param {string} [prefix='LD-']
- * @returns {string}
  */
 export function formatOrderId(rawId, prefix = 'LD-') {
   if (!rawId) return '';

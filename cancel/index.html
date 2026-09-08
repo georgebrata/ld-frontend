@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/pages.css" />
   <link rel="icon" href="/favicon/safari-pinned-tab.svg" />
-  <script src="/plugins/gtm.js"></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; upgrade-insecure-requests" />
 </head>
 <body class="page-cancel" data-page="cancel">
   <div class="confirmation-wrapper">
@@ -26,10 +26,11 @@
       <h1>Payment cancelled</h1>
       <p>Payment was cancelled or abandoned. The order was not successfully paid.</p>
       <p>You can return to the service and try again. If you think this is a mistake, contact support.</p>
-      <div class="confirmation-actions">
+      <div id="cancel-retry" class="confirmation-actions">
         <a class="btn" href="/">Return to services</a>
       </div>
     </div>
   </div>
+  <script type="module" src="/js/app.js?v=20260908c"></script>
 </body>
 </html>

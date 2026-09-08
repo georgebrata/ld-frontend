@@ -24,17 +24,15 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://like-dealer.com/tiktok/" />
 
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; frame-src https://js.stripe.com https://checkout.stripe.com; upgrade-insecure-requests" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://script.google.com" />
-  <link rel="preconnect" href="https://ajax.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
 
   <link rel="preload" href="/assets/like-dealer-logo.svg" as="image" />
   <link rel="preload" href="/assets/scroll-icon.svg" as="image" />
-  <link rel="modulepreload" href="/js/app.js" />
+  <link rel="modulepreload" href="/js/app.js?v=20260908d" />
   <link rel="prefetch" href="/assets/cardLogos/tiktok.svg" as="image" />
   <link rel="prefetch" href="/tiktok/likes/" />
   <link rel="prefetch" href="/tiktok/followers/" />
@@ -48,17 +46,13 @@
   <meta name="msapplication-TileColor" content="#da532c" />
   <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
 
-  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-  <script defer src="/plugins/gtm.js"></script>
-  <script defer src="/plugins/plugins.js"></script>
-  <script defer src="/js/ui/scene.js"></script>
   
 </head>
 
 <body class="platform-tiktok" data-page="platform" data-platform="tiktok">
   <a class="skip-link" href="#platforms">Skip to order form</a>
 
-  <div id="menu">
+  <nav id="menu" aria-label="Site">
     <ul>
       <li><a href="/" class="menu">Home</a></li>
       <li><a href="/why/" class="menu">Why</a></li>
@@ -66,13 +60,13 @@
       <li><a href="/?platform=tiktok" class="menu">TikTok</a></li>
       <li><a href="/?platform=youtube" class="menu">Youtube</a></li>
     </ul>
-  </div>
+  </nav>
 
-  <div id="menu-trigger" role="button" tabindex="0" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-  </div>
+  <button type="button" id="menu-trigger" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+  </button>
 
   <div id="wrapper">
     <div id="inner">
@@ -229,7 +223,30 @@
 
       <main id="page">
         <h1 class="page-title">TikTok services</h1>
-        <div id="order-root" aria-live="polite"><div class="catalogue-state"><p>Loading services…</p></div></div>
+        <div id="order-root" aria-live="polite"><noscript><div id="services">
+      <a class="gcard service-card" href="/tiktok/likes/" aria-label="TikTok Likes">
+        <div class="gcard-front service-card-front">
+          <svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z"></path></g></svg>
+          <div class="gcard-logo service-card-logo">
+            <div class="service-title gcard-value gcard-type service-card-type"><p>Likes</p></div>
+            <img src="/assets/cardLogos/tiktok.svg" alt="TikTok logo" />
+            
+            <div class="service-title gcard-value service-card-value"><p>Price at checkout</p></div>
+          </div>
+        </div>
+      </a>
+      <a class="gcard service-card" href="/tiktok/followers/" aria-label="TikTok Followers">
+        <div class="gcard-front service-card-front">
+          <svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z"></path></g></svg>
+          <div class="gcard-logo service-card-logo">
+            <div class="service-title gcard-value gcard-type service-card-type"><p>Followers</p></div>
+            <img src="/assets/cardLogos/tiktok.svg" alt="TikTok logo" />
+            
+            <div class="service-title gcard-value service-card-value"><p>Price at checkout</p></div>
+          </div>
+        </div>
+      </a>
+    </div></noscript><div class="catalogue-state"><p>Loading services…</p></div></div>
         <section class="content content--trust">
           <h2>What LikeDealer is</h2>
       <p>LikeDealer is a simple way to buy social-media engagement. You do not need an account. Pick a platform, choose a service, and pay once.</p>
@@ -240,18 +257,19 @@
         <li>Enter the required details and pay securely with Stripe</li>
       </ol>
       <h2>Pricing</h2>
-      <p>Any price shown on a card is for guidance. The amount you pay is calculated at checkout and confirmed by Stripe.</p>
+      <p>Any price shown on a card is guidance. The amount you pay is calculated on the server at checkout and confirmed by Stripe.</p>
       <h2>Secure payment</h2>
-      <p>Payments are processed by Stripe. LikeDealer never sees your card number.</p>
+      <p>Payments are processed by Stripe. LikeDealer never sees your card number. We never ask for social-media passwords.</p>
       <h2>After you pay</h2>
-      <p>You will get a confirmation email. Your order is then processed. Reaching the success page means payment was received — not that fulfilment is already finished.</p>
+      <p>Paid orders are submitted to the fulfilment provider automatically. Reaching the success page is not required for that work, and it is not proof that delivery is finished. Refunds are handled by support after review — a provider cancellation does not itself refund Stripe.</p>
         </section>
       </main>
     </div>
   </div>
 
-  <script type="application/json" id="services-data">{"services":[{"id":"01","platform":"instagram","platformLabel":"Instagram","service":"Likes","label":"Instagram Likes","description":"","price":2.2,"inputs":["url"],"visible":true,"slug":"likes","url":"/instagram/likes/"},{"id":"02","platform":"instagram","platformLabel":"Instagram","service":"Followers","label":"Instagram Followers","description":"","price":4.2,"inputs":["username"],"visible":true,"slug":"followers","url":"/instagram/followers/"},{"id":"03","platform":"instagram","platformLabel":"Instagram","service":"Comments","label":"Instagram Comments","description":"","price":7,"inputs":["url","commentsList"],"visible":true,"slug":"comments","url":"/instagram/comments/"},{"id":"04","platform":"tiktok","platformLabel":"TikTok","service":"Likes","label":"TikTok Likes","description":"","price":1.5,"inputs":["url"],"visible":true,"slug":"likes","url":"/tiktok/likes/"},{"id":"05","platform":"tiktok","platformLabel":"TikTok","service":"Followers","label":"TikTok Followers","description":"","price":3.1,"inputs":["username"],"visible":true,"slug":"followers","url":"/tiktok/followers/"},{"id":"06","platform":"youtube","platformLabel":"Youtube","service":"Subscribers","label":"Youtube Subscribers","description":"","price":4,"inputs":["url"],"visible":true,"slug":"subscribers","url":"/youtube/subscribers/"}],"phrases":["Boost your socials","Instagram Likes","Instagram Followers","Instagram Comments","TikTok Likes","TikTok Followers","Youtube Subscribers"]}</script>
-  <script type="module" src="/js/app.js"></script>
+  <script type="application/json" id="services-data">{"services":[{"id":"01","platform":"instagram","platformLabel":"Instagram","service":"Likes","description":"","inputs":["url"],"visible":true,"rateUnit":"per_1000","retailCurrency":"USD","markupMultiplier":2,"quantityStep":100,"quantityDefault":1000,"packagePriceMinor":null,"dripEnabled":false,"label":"Instagram Likes","price":null,"url":"/instagram/likes/","slug":"likes","purchasable":false,"enabled":true},{"id":"02","platform":"instagram","platformLabel":"Instagram","service":"Followers","description":"","inputs":["username"],"visible":true,"rateUnit":"per_1000","retailCurrency":"USD","markupMultiplier":2,"quantityStep":100,"quantityDefault":1000,"packagePriceMinor":null,"dripEnabled":false,"label":"Instagram Followers","price":null,"url":"/instagram/followers/","slug":"followers","purchasable":false,"enabled":true},{"id":"03","platform":"instagram","platformLabel":"Instagram","service":"Comments","description":"","inputs":["url","comments"],"visible":true,"rateUnit":"per_comment","retailCurrency":"USD","markupMultiplier":2,"quantityStep":1,"quantityDefault":null,"packagePriceMinor":null,"dripEnabled":false,"label":"Instagram Comments","price":null,"url":"/instagram/comments/","slug":"comments","purchasable":false,"enabled":true},{"id":"04","platform":"tiktok","platformLabel":"TikTok","service":"Likes","description":"","inputs":["url"],"visible":true,"rateUnit":"per_1000","retailCurrency":"USD","markupMultiplier":2,"quantityStep":100,"quantityDefault":1000,"packagePriceMinor":null,"dripEnabled":false,"label":"TikTok Likes","price":null,"url":"/tiktok/likes/","slug":"likes","purchasable":false,"enabled":true},{"id":"05","platform":"tiktok","platformLabel":"TikTok","service":"Followers","description":"","inputs":["username"],"visible":true,"rateUnit":"per_1000","retailCurrency":"USD","markupMultiplier":2,"quantityStep":100,"quantityDefault":1000,"packagePriceMinor":null,"dripEnabled":false,"label":"TikTok Followers","price":null,"url":"/tiktok/followers/","slug":"followers","purchasable":false,"enabled":true},{"id":"06","platform":"youtube","platformLabel":"Youtube","service":"Subscribers","description":"","inputs":["url"],"visible":true,"rateUnit":"per_1000","retailCurrency":"USD","markupMultiplier":2,"quantityStep":50,"quantityDefault":1000,"packagePriceMinor":null,"dripEnabled":false,"label":"Youtube Subscribers","price":null,"url":"/youtube/subscribers/","slug":"subscribers","purchasable":false,"enabled":true}],"phrases":["Boost your socials","Instagram Likes","Instagram Followers","Instagram Comments","TikTok Likes","TikTok Followers","Youtube Subscribers"]}</script>
+  <script src="/js/ui/scene.js?v=20260908b"></script>
+  <script type="module" src="/js/app.js?v=20260908d"></script>
 </body>
 
 </html>

@@ -12,7 +12,7 @@
   <meta property="og:site_name" content="Like Dealer" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://like-dealer.com/why/" />
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; frame-src https://js.stripe.com https://checkout.stripe.com; upgrade-insecure-requests" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Passion+One&display=swap" rel="stylesheet" />
@@ -21,15 +21,11 @@
   <link rel="stylesheet" href="../css/base.css" />
   <link rel="stylesheet" href="../css/components.css" />
   <link rel="stylesheet" href="../css/pages.css" />
-  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-  <script defer src="/plugins/gtm.js"></script>
-  <script defer src="/plugins/plugins.js"></script>
-  <script defer src="/js/ui/scene.js"></script>
 </head>
 <body class="page-why">
   <a class="skip-link" href="#why-content">Skip to content</a>
 
-  <div id="menu">
+  <nav id="menu" aria-label="Site">
     <ul>
       <li><a href="/" class="menu">Home</a></li>
       <li><a href="/why/" class="menu">Why</a></li>
@@ -37,13 +33,13 @@
       <li><a href="/?platform=tiktok" class="menu">TikTok</a></li>
       <li><a href="/?platform=youtube" class="menu">Youtube</a></li>
     </ul>
-  </div>
+  </nav>
 
-  <div id="menu-trigger">
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-    <div class="menu-trigger"></div>
-  </div>
+  <button type="button" id="menu-trigger" aria-label="Open menu" aria-controls="menu" aria-expanded="false">
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+    <span class="menu-trigger" aria-hidden="true"></span>
+  </button>
 
   <header class="why-header">
     <!-- <a href="../" class="why-header__logo">
@@ -157,5 +153,6 @@
     </footer>
 
   </main>
+  <script src="/js/ui/scene.js?v=20260908b"></script>
 </body>
 </html>

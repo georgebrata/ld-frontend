@@ -1,141 +1,138 @@
-import { CONFIG } from '../config.js';
 import { ordersApi } from '../api/orders-api.js';
-import { formatUsd } from '../utils/money.js';
+import { formatMoney, estimateTotalMinor } from '../utils/money.js';
 import { createEl, clearChildren } from '../utils/dom.js';
-import {
-  renderInput,
-  validateField,
-  collectServiceInputValues,
-} from './input-renderer.js';
+import { normalizeNewlineList } from '../utils/inputs.js';
+import { track } from '../analytics/adapter.js';
+import { getOrCreateCapability, saveCheckoutDraft, readCheckoutDraft } from './capability.js';
+import { renderInput, validateField, collectServiceInputValues } from './input-renderer.js';
 
 /**
  * @param {import('../types.js').Service} service
- * @param {number|null} unitCents
  * @param {number} quantity
- * @returns {string}
  */
-function displayTotal(service, unitCents, quantity) {
-  if (Number.isInteger(unitCents) && unitCents >= 0) {
-    const total = Math.round((unitCents * quantity) / 1000);
-    return `${formatUsd(total)} estimated`;
+function estimateLabel(service, quantity) {
+  if (!Number.isInteger(service.retailRateMinor) || !service.rateUnit) {
+    return 'Total confirmed before payment';
   }
-  if (service.price == null) return 'Price confirmed at checkout';
-  return 'Display price only — final amount is confirmed at payment';
+  const total = estimateTotalMinor(service.retailRateMinor, quantity, service.rateUnit);
+  if (total == null) return 'Total confirmed before payment';
+  return `${formatMoney(total, service.currency)} estimated`;
+}
+
+function quantityMode(service) {
+  const declared = service.quantityMode;
+  if (declared === 'from_comments' || declared === 'package' || declared === 'omit') return declared;
+  if ((service.inputs || []).includes('comments')) return 'from_comments';
+  return declared || 'required';
 }
 
 /**
- * Mount the inline checkout form for a service.
- *
  * @param {HTMLElement} container
  * @param {import('../types.js').Service} service
- * @returns {Promise<void>}
  */
 export async function mountCheckoutForm(container, service) {
   clearChildren(container);
   let submitting = false;
-
-  const status = createEl('p', {
-    className: 'checkout-status',
-    role: 'status',
-    'aria-live': 'polite',
-  });
+  let reviewedQuote = null;
+  const mode = quantityMode(service);
+  const needsQuantity = mode === 'required';
+  const draft = readCheckoutDraft();
+  const sameService = draft?.serviceId === service.id;
 
   const heading = createEl('p', { className: 'checkout-form__service' }, service.label);
+  const status = createEl('p', { className: 'checkout-status', role: 'status', 'aria-live': 'polite' });
   container.appendChild(heading);
   container.appendChild(status);
 
-  /** @type {{ quantityMin: number, quantityMax: number, unitPriceInCents: number|null, purchasable: boolean }} */
-  let catalog = {
-    quantityMin: CONFIG.QUANTITY_MIN,
-    quantityMax: CONFIG.QUANTITY_MAX,
-    unitPriceInCents: null,
-    purchasable: true,
-  };
-
-  if (CONFIG.CHECKOUT_WORKER_URL) {
-    status.textContent = 'Loading price…';
-    try {
-      catalog = await ordersApi.getCatalog(service.id);
-    } catch {
-      status.textContent = 'Live pricing is unavailable. You can still enter details.';
-    }
-  }
-
-  if (catalog.purchasable === false) {
+  if (!service.purchasable) {
     status.textContent = 'This service is not available to purchase right now.';
     return;
   }
 
   const form = createEl('form', { className: 'checkout-form', novalidate: 'true' });
-
-  const serviceInputTypes = (service.inputs ?? []).filter(
-    (type) => type !== 'email' && type !== 'quantity'
-  );
-  serviceInputTypes.forEach((type) => renderInput(type, form));
-
-  const qtyBounds = {
-    min: catalog.quantityMin,
-    max: catalog.quantityMax,
-    step: CONFIG.QUANTITY_STEP,
-    value: Math.min(
-      Math.max(CONFIG.DEFAULT_QUANTITY, catalog.quantityMin),
-      catalog.quantityMax
-    ),
-  };
-  renderInput('quantity', form, qtyBounds);
-  renderInput('email', form);
-
-  const priceEl = createEl(
-    'p',
-    { className: 'checkout-price', 'aria-live': 'polite' },
-    displayTotal(service, catalog.unitPriceInCents, qtyBounds.value)
-  );
-  form.appendChild(priceEl);
-
-  const qtyInput = /** @type {HTMLInputElement|null} */ (form.querySelector('[name="quantity"]'));
-
-  /**
-   * @param {number} quantity
-   */
-  async function refreshQuote(quantity) {
-    if (!CONFIG.CHECKOUT_WORKER_URL) {
-      priceEl.textContent = displayTotal(service, catalog.unitPriceInCents, quantity);
-      return;
-    }
-    try {
-      const quote = await ordersApi.getQuote({ serviceId: service.id, quantity });
-      catalog.unitPriceInCents = quote.unitPriceInCents;
-      priceEl.textContent = `${formatUsd(quote.totalInCents)} estimated`;
-    } catch {
-      priceEl.textContent = displayTotal(service, catalog.unitPriceInCents, quantity);
-    }
-  }
-
-  if (qtyInput) {
-    qtyInput.addEventListener('input', () => {
-      const qty = Number(qtyInput.value);
-      if (Number.isInteger(qty)) {
-        priceEl.textContent = displayTotal(service, catalog.unitPriceInCents, qty);
-        refreshQuote(qty);
-      }
-    });
-    refreshQuote(Number(qtyInput.value) || qtyBounds.value);
-  }
-
-  const submitBtn = createEl(
-    'button',
-    { className: 'btn checkout-submit', type: 'submit' },
-    'Continue to payment'
-  );
-  form.appendChild(submitBtn);
-
   const errorBanner = createEl('p', {
     className: 'form-error checkout-form__banner',
     role: 'alert',
     'aria-live': 'assertive',
   });
   errorBanner.hidden = true;
-  form.prepend(errorBanner);
+  form.appendChild(errorBanner);
+
+  const serviceInputTypes = (service.inputs ?? []).filter((type) => type !== 'email' && type !== 'quantity');
+  serviceInputTypes.forEach((type) => {
+    const rendered = renderInput(type, form, {
+      value: sameService ? draft?.inputs?.[type] : undefined,
+    });
+    if (sameService && draft?.inputs?.[type]) rendered.input.value = draft.inputs[type];
+  });
+
+  const min = Number.isInteger(service.quantityMin) ? service.quantityMin : 1;
+  const max = Number.isInteger(service.quantityMax) ? service.quantityMax : 10_000_000;
+  const step = Number.isInteger(service.quantityStep) ? service.quantityStep : 1;
+  const defaultQty = Number.isInteger(service.quantityDefault)
+    ? Math.min(Math.max(service.quantityDefault, min), max)
+    : min;
+
+  if (needsQuantity) {
+    renderInput('quantity', form, {
+      min,
+      max,
+      step,
+      value: sameService && draft?.quantity ? draft.quantity : defaultQty,
+    });
+  }
+  renderInput('email', form, { value: sameService ? draft?.email : undefined });
+  if (sameService && draft?.email) {
+    const emailInput = form.querySelector('[name="email"]');
+    if (emailInput) emailInput.value = draft.email;
+  }
+
+  const limits = createEl(
+    'p',
+    { className: 'checkout-limits' },
+    needsQuantity
+      ? `Quantity ${min.toLocaleString('en-US')}–${max.toLocaleString('en-US')}${step > 1 ? `, step ${step}` : ''}. ${
+          service.rateUnit === 'per_1000' ? 'Priced per 1,000.' : service.rateUnit === 'per_comment' ? 'Priced per comment.' : ''
+        }`
+      : mode === 'from_comments'
+        ? 'Quantity is the number of nonempty comment lines. Priced per comment.'
+        : 'This is a package price for one order.'
+  );
+  form.appendChild(limits);
+
+  const priceEl = createEl('p', { className: 'checkout-price', 'aria-live': 'polite' }, estimateLabel(service, defaultQty));
+  form.appendChild(priceEl);
+
+  const facts = createEl('div', { className: 'checkout-facts' });
+  facts.appendChild(
+    createEl(
+      'p',
+      {},
+      'Delivery time depends on the downstream provider and is not guaranteed on this page. Refunds are handled by LikeDealer support after we review the paid order — cancelling a provider order does not itself refund Stripe.'
+    )
+  );
+  facts.appendChild(createEl('p', {}, 'We never ask for social-media passwords. Payments are processed by Stripe.'));
+  form.appendChild(facts);
+
+  const qtyInput = /** @type {HTMLInputElement|null} */ (form.querySelector('[name="quantity"]'));
+  const commentsInput = /** @type {HTMLTextAreaElement|null} */ (form.querySelector('[name="comments"]'));
+
+  function currentQuantity() {
+    if (mode === 'from_comments') return normalizeNewlineList(commentsInput?.value || '').count || 1;
+    if (mode === 'package') return 1;
+    return Number(qtyInput?.value || defaultQty);
+  }
+
+  function refreshEstimate() {
+    priceEl.textContent = estimateLabel(service, currentQuantity());
+  }
+
+  qtyInput?.addEventListener('input', refreshEstimate);
+  commentsInput?.addEventListener('input', refreshEstimate);
+  refreshEstimate();
+
+  const submitBtn = createEl('button', { className: 'btn checkout-submit', type: 'submit' }, 'Continue to payment');
+  form.appendChild(submitBtn);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -147,7 +144,7 @@ export async function mountCheckoutForm(container, service) {
       const field = form.querySelector(`[data-input-type="${type}"]`);
       const errorEl = field?.querySelector('.form-error');
       if (input && field && errorEl) {
-        if (!validateField(type, input, field, errorEl)) valid = false;
+        if (!validateField(type, input, field, errorEl, { platform: service.platform, min, max })) valid = false;
       }
     });
 
@@ -161,57 +158,84 @@ export async function mountCheckoutForm(container, service) {
     if (qtyInput) {
       const qtyField = form.querySelector('[data-input-type="quantity"]');
       const qtyError = qtyField?.querySelector('.form-error');
-      if (qtyField && qtyError) {
-        if (
-          !validateField('quantity', qtyInput, qtyField, qtyError, {
-            min: catalog.quantityMin,
-            max: catalog.quantityMax,
-          })
-        ) {
-          valid = false;
-        }
+      if (qtyField && qtyError && !validateField('quantity', qtyInput, qtyField, qtyError, { min, max })) {
+        valid = false;
       }
     }
 
     if (!valid) {
-      errorBanner.hidden = true;
+      track('validation_failure', { serviceId: service.id });
       const firstError = form.querySelector('.form-field--error input, .form-field--error textarea');
       if (firstError instanceof HTMLElement) firstError.focus();
       return;
     }
 
-    if (!CONFIG.CHECKOUT_WORKER_URL) {
+    if (!ordersApi.isCheckoutConfigured()) {
       errorBanner.textContent = 'Checkout is not configured yet. Please try again later.';
       errorBanner.hidden = false;
       return;
     }
 
     const inputs = collectServiceInputValues(form, serviceInputTypes);
-    if (inputs.username) inputs.username = inputs.username.replace(/^@/, '');
+    const quantity = currentQuantity();
+    const expectedMinor = estimateTotalMinor(service.retailRateMinor, quantity, service.rateUnit);
+    saveCheckoutDraft({
+      serviceId: service.id,
+      platform: service.platform,
+      slug: service.slug,
+      url: service.url,
+      quantity,
+      email: emailInput?.value.trim() ?? '',
+      inputs,
+    });
+
+    const cap = getOrCreateCapability(service.id);
+    const payload = {
+      serviceId: service.id,
+      quantity,
+      customerEmail: emailInput?.value.trim() ?? '',
+      inputs,
+      checkoutAttemptId: cap.attemptId,
+      capabilityToken: cap.token,
+      expectedQuote: reviewedQuote
+        ? {
+            amountMinor: reviewedQuote.amountMinor,
+            currency: reviewedQuote.currency,
+            quantity: reviewedQuote.quantity ?? quantity,
+            quoteVersion: reviewedQuote.quoteVersion,
+          }
+        : expectedMinor != null
+          ? {
+              amountMinor: expectedMinor,
+              currency: service.currency,
+              quantity,
+            }
+          : undefined,
+    };
 
     submitting = true;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Processing…';
+    submitBtn.textContent = 'Opening payment…';
     errorBanner.hidden = true;
     status.textContent = 'Opening secure payment…';
+    track('checkout_start', { serviceId: service.id });
 
     try {
-      const checkoutUrl = await ordersApi.createCheckoutSession({
-        serviceId: service.id,
-        quantity: Number(qtyInput?.value ?? qtyBounds.value),
-        customerEmail: emailInput?.value.trim() ?? '',
-        inputs,
-      });
-      window.location.href = checkoutUrl;
+      const result = await ordersApi.createCheckoutSession(payload);
+      window.location.href = result.checkoutUrl;
     } catch (err) {
       submitting = false;
       submitBtn.disabled = false;
       submitBtn.textContent = 'Continue to payment';
       status.textContent = '';
-      errorBanner.textContent =
-        err instanceof Error && err.message
-          ? err.message
-          : 'Something went wrong. Please try again.';
+      if (err && err.code === 'quote_changed' && err.quote) {
+        reviewedQuote = err.quote;
+        priceEl.textContent = `${formatMoney(err.quote.amountMinor, err.quote.currency)} — review this total, then continue`;
+        errorBanner.textContent = err.message;
+        errorBanner.hidden = false;
+        return;
+      }
+      errorBanner.textContent = err instanceof Error && err.message ? err.message : 'Something went wrong. Please try again.';
       errorBanner.hidden = false;
     }
   });
@@ -219,4 +243,5 @@ export async function mountCheckoutForm(container, service) {
   container.appendChild(form);
   const firstField = form.querySelector('input, textarea');
   if (firstField instanceof HTMLElement) firstField.focus();
+  track('service_selected', { serviceId: service.id });
 }
