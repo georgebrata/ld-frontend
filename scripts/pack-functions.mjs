@@ -10,7 +10,14 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fnRoot = path.join(root, 'supabase/functions');
 const outDir = path.join(root, 'tmp-deploy');
 
-const FUNCTIONS = ['catalogue', 'create-checkout', 'stripe-webhook', 'order-status', 'process-jobs'];
+const FUNCTIONS = [
+  'catalogue',
+  'create-checkout',
+  'stripe-webhook',
+  'order-status',
+  'process-jobs',
+  'refresh-catalogue',
+];
 const SKIP = new Set(['store-memory.js']);
 
 function collect(entryRel) {

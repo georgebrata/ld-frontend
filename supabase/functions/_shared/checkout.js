@@ -36,7 +36,17 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
   if (!parsed.ok) return { status: 400, body: { error: parsed.error } };
 
   const tokenHash = await hashCapabilityToken(parsed.capabilityToken);
-  const internal = await getInternalService(env, parsed.serviceId, deps);
+  const catalogueDeps = {
+    ...deps,
+    listProducts:
+      deps.listProducts ||
+      (typeof store.listProducts === 'function' ? () => store.listProducts() : undefined),
+    cacheGet: deps.cacheGet || (typeof store.cacheGet === 'function' ? (key) => store.cacheGet(key) : undefined),
+    cacheSet:
+      deps.cacheSet ||
+      (typeof store.cacheSet === 'function' ? (key, value, ttl) => store.cacheSet(key, value, ttl) : undefined),
+  };
+  const internal = await getInternalService(env, parsed.serviceId, catalogueDeps);
   if (!internal || !internal.purchasable) {
     return { status: 409, body: { error: 'That service is not available to purchase right now.' } };
   }
@@ -45,7 +55,7 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
   if (!checked.ok) return { status: 400, body: { error: checked.error } };
 
   const money = pricingEnv(env);
-  const providerCatalog = await getProviderCatalog(env, deps);
+  const providerCatalog = await getProviderCatalog(env, catalogueDeps);
   const provider = findProviderService(providerCatalog, internal.socialpanelId);
   const quote = quoteService({
     retail: {

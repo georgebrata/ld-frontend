@@ -1,7 +1,7 @@
-import { servicesApi } from '../api/services-api.js';
-import { createCardFrameSvg, formatCardPrice } from '../components/card-frame.js';
+import { servicesApi } from '../api/services-api.js?v=20260909a';
+import { formatCardPrice } from '../components/card-frame.js';
 import { renderEmpty, renderError, renderLoading } from '../components/catalogue-states.js';
-import { mountCheckoutForm } from '../checkout/checkout-form.js';
+import { mountCheckoutForm } from '../checkout/checkout-form.js?v=20260909d';
 import { createEl, clearChildren } from '../utils/dom.js';
 import { prefersReducedMotion, scrollToSection } from '../utils/motion.js';
 import { getPlatformIconUrl, getPlatformInitials } from '../utils/platform-icons.js';
@@ -14,12 +14,52 @@ import { getPlatformIconUrl, getPlatformInitials } from '../utils/platform-icons
 function appendPlatformIcon(wrap, platform, platformLabel) {
   const iconUrl = getPlatformIconUrl(platform);
   if (iconUrl) {
-    const img = createEl('img', { src: iconUrl, alt: '' });
-    img.style.width = '70%';
-    wrap.appendChild(img);
+    wrap.appendChild(createEl('img', { src: iconUrl, alt: `${platformLabel} logo` }));
     return;
   }
   wrap.appendChild(createEl('span', { className: 'platform-badge' }, getPlatformInitials(platformLabel)));
+}
+
+/**
+ * @param {import('../types.js').Service} service
+ */
+function serviceCardMeta(service) {
+  if (!service.purchasable) return 'Unavailable';
+  if (service.rateUnit === 'per_comment') return 'Priced per comment';
+  if (service.rateUnit === 'package') return 'Package price at checkout';
+  if (service.price != null) return formatCardPrice(service.price);
+  return 'Price at checkout';
+}
+
+/**
+ * @param {{
+ *   className: string,
+ *   selected: boolean,
+ *   label: string,
+ *   platform: string,
+ *   platformLabel: string,
+ *   title: string,
+ *   meta?: string,
+ *   index: number,
+ *   attrs?: Record<string, string>
+ * }} opts
+ */
+function createChoiceCard(opts) {
+  const card = createEl('button', {
+    className: `choice-card choice-card--${opts.platform} ${opts.className}${opts.selected ? ' is-selected' : ''}`,
+    type: 'button',
+    role: 'radio',
+    'aria-checked': opts.selected ? 'true' : 'false',
+    'aria-label': opts.label,
+    tabindex: opts.index === 0 || opts.selected ? '0' : '-1',
+    ...(opts.attrs || {}),
+  });
+  const icon = createEl('span', { className: 'choice-card__icon', 'aria-hidden': 'true' });
+  appendPlatformIcon(icon, opts.platform, opts.platformLabel);
+  card.appendChild(icon);
+  card.appendChild(createEl('span', { className: 'choice-card__title' }, opts.title));
+  if (opts.meta) card.appendChild(createEl('span', { className: 'choice-card__meta' }, opts.meta));
+  return card;
 }
 
 /**
@@ -174,36 +214,17 @@ export async function initOnePageOrder(preset = {}) {
 
     filtered.forEach((service, index) => {
       const selected = service.id === selectedServiceId || service.slug === selectedSlug;
-      const card = createEl('button', {
-        className: `gcard service-card${selected ? ' is-selected' : ''}`,
-        type: 'button',
-        role: 'radio',
-        'aria-checked': selected ? 'true' : 'false',
-        'aria-label': service.label,
-        tabindex: index === 0 || selected ? '0' : '-1',
+      const card = createChoiceCard({
+        className: 'service-card',
+        selected,
+        label: service.label,
+        platform: service.platform,
+        platformLabel: service.platformLabel,
+        title: service.service,
+        meta: service.description || serviceCardMeta(service),
+        index,
+        attrs: { 'data-service-id': service.id },
       });
-
-      const front = createEl('div', { className: 'gcard-front service-card-front' });
-      front.appendChild(createCardFrameSvg());
-      const logo = createEl('div', { className: 'gcard-logo service-card-logo' });
-      const typeEl = createEl('div', {
-        className: 'service-title gcard-value gcard-type service-card-type',
-      });
-      typeEl.appendChild(createEl('p', {}, service.service));
-      logo.appendChild(typeEl);
-      appendPlatformIcon(logo, service.platform, service.platformLabel);
-      if (service.description) {
-        logo.appendChild(createEl('p', { className: 'service-card-desc' }, service.description));
-      }
-      const priceEl = createEl('div', {
-        className: 'service-title gcard-value service-card-value',
-      });
-      priceEl.appendChild(
-        createEl('p', {}, service.purchasable ? formatCardPrice(service.price) : 'Unavailable')
-      );
-      logo.appendChild(priceEl);
-      front.appendChild(logo);
-      card.appendChild(front);
       card.addEventListener('click', () => selectService(service));
       servicesGrid.appendChild(card);
     });
@@ -247,7 +268,7 @@ export async function initOnePageOrder(preset = {}) {
     syncHomeUrl(service.platform, selectedSlug);
 
     servicesGrid.querySelectorAll('[role="radio"]').forEach((el) => {
-      const isCurrent = el.getAttribute('aria-label') === service.label;
+      const isCurrent = el.getAttribute('data-service-id') === service.id;
       el.classList.toggle('is-selected', isCurrent);
       el.setAttribute('aria-checked', isCurrent ? 'true' : 'false');
       el.tabIndex = isCurrent ? 0 : -1;
@@ -260,21 +281,16 @@ export async function initOnePageOrder(preset = {}) {
 
   platforms.forEach((platform, index) => {
     const selected = platform.platform === selectedPlatform;
-    const card = createEl('button', {
-      className: `home-card${selected ? ' is-selected' : ''}`,
-      type: 'button',
-      role: 'radio',
-      'aria-checked': selected ? 'true' : 'false',
-      'aria-label': platform.platformLabel,
-      'data-platform': platform.platform,
-      tabindex: index === 0 || selected ? '0' : '-1',
+    const card = createChoiceCard({
+      className: 'home-card',
+      selected,
+      label: platform.platformLabel,
+      platform: platform.platform,
+      platformLabel: platform.platformLabel,
+      title: platform.platformLabel,
+      index,
+      attrs: { 'data-platform': platform.platform },
     });
-    const front = createEl('div', { className: 'home-card-front' });
-    front.appendChild(createCardFrameSvg());
-    const logo = createEl('div', { className: 'home-card-logo' });
-    appendPlatformIcon(logo, platform.platform, platform.platformLabel);
-    front.appendChild(logo);
-    card.appendChild(front);
     card.addEventListener('click', () => selectPlatform(platform));
     platformsGrid.appendChild(card);
   });

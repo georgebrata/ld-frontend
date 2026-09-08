@@ -1,6 +1,8 @@
 /**
- * Join retail catalogue with SocialPanel24 services. Cache TTL is 5 minutes;
- * stale cache (up to 1 hour) is served if the provider is down.
+ * Join retail catalogue with SocialPanel24 services. Request-path cache TTL is
+ * 5 minutes; stale cache (up to 1 hour) is served if the provider is down.
+ * `refreshCatalogue` force-pulls SocialPanel24 and rewrites catalogue_cache
+ * (scheduled daily by pg_cron).
  */
 
 import { loadRetailCatalogue } from './retail-adapter.js';
@@ -36,8 +38,9 @@ export function pricingEnv(env) {
  */
 export async function getProviderCatalog(env, deps = {}) {
   const now = deps.now ? deps.now() : Date.now();
-  if (memory.provider && memory.provider.expires > now) return memory.provider.services;
-  if (deps.cacheGet) {
+  const force = Boolean(deps.forceRefresh);
+  if (!force && memory.provider && memory.provider.expires > now) return memory.provider.services;
+  if (!force && deps.cacheGet) {
     const cached = await deps.cacheGet('sp24:services');
     if (cached && Array.isArray(cached.services) && cached.expires > now) {
       memory.provider = { expires: cached.expires, services: cached.services };
@@ -45,10 +48,13 @@ export async function getProviderCatalog(env, deps = {}) {
     }
   }
 
+  const timeoutMs = Number(
+    env.SOCIALPANEL24_TIMEOUT_MS || (force ? 20000 : PROVIDER_TIMEOUT_MS)
+  );
   const services = await fetchProviderServices({
     apiKey: env.SOCIALPANEL24_API_KEY,
     fetchImpl: deps.fetchImpl,
-    timeoutMs: Number(env.SOCIALPANEL24_TIMEOUT_MS || PROVIDER_TIMEOUT_MS),
+    timeoutMs,
   });
   const normalized = services.map((row) => normalizeProviderService(row));
   const expires = now + CATALOGUE_TTL_MS;
@@ -143,6 +149,7 @@ export function joinService(retail, provider, money) {
 export async function buildCatalogue(env, deps = {}) {
   const money = pricingEnv(env);
   const retail = await loadRetailCatalogue({
+    listProducts: deps.listProducts,
     sheetUrl: env.RETAIL_CATALOGUE_URL,
     socialpanelIds: env.RETAIL_SOCIALPANEL_IDS,
     fetchImpl: deps.fetchImpl,
@@ -254,4 +261,92 @@ export async function getInternalService(env, serviceId, deps = {}) {
 export function clearCatalogueMemory() {
   memory.public = null;
   memory.provider = null;
+}
+
+/**
+ * Force-fetch SocialPanel24 services and rewrite catalogue_cache.
+ * Does not insert storefront products. Mapped `public.products` rows stay
+ * curated; missing or empty provider lists leave the previous cache in place.
+ *
+ * @param {object} env
+ * @param {object} [deps]
+ */
+export async function refreshCatalogue(env, deps = {}) {
+  const now = deps.now ? deps.now() : Date.now();
+  clearCatalogueMemory();
+
+  let providerRows = [];
+  try {
+    providerRows = await getProviderCatalog(env, { ...deps, forceRefresh: true });
+  } catch (err) {
+    return {
+      ok: false,
+      refreshed: false,
+      providerError: err instanceof Error ? err.message : 'provider_unavailable',
+      providerCount: 0,
+      cacheKeys: [],
+      visible: 0,
+      purchasable: 0,
+      unmapped: 0,
+      missing: 0,
+      products: [],
+    };
+  }
+
+  if (!providerRows.length) {
+    return {
+      ok: false,
+      refreshed: false,
+      providerError: 'empty_provider_catalogue',
+      providerCount: 0,
+      cacheKeys: [],
+      visible: 0,
+      purchasable: 0,
+      unmapped: 0,
+      missing: 0,
+      products: [],
+    };
+  }
+
+  const built = await buildCatalogue(env, deps);
+  const payload = {
+    ok: true,
+    data: built.publicServices,
+    generatedAt: new Date(now).toISOString(),
+    ttlSeconds: Math.round(CATALOGUE_TTL_MS / 1000),
+  };
+  const entry = {
+    expires: now + CATALOGUE_TTL_MS,
+    staleUntil: now + CATALOGUE_STALE_MS,
+    payload,
+  };
+  memory.public = entry;
+
+  /** @type {string[]} */
+  const cacheKeys = [];
+  if (deps.cacheSet) {
+    await deps.cacheSet('sp24:services', { expires: now + CATALOGUE_TTL_MS, services: providerRows }, CATALOGUE_STALE_MS);
+    await deps.cacheSet('catalogue:public', entry, CATALOGUE_STALE_MS);
+    cacheKeys.push('sp24:services', 'catalogue:public');
+  }
+
+  const products = built.internals.map((row) => ({
+    id: row.id,
+    label: row.label,
+    purchasable: Boolean(row.purchasable),
+    disableReason: row.disableReason || '',
+  }));
+
+  return {
+    ok: true,
+    refreshed: true,
+    providerError: built.providerError || '',
+    providerCount: providerRows.length,
+    cacheKeys,
+    visible: products.filter((row) => row.disableReason !== 'hidden').length,
+    purchasable: products.filter((row) => row.purchasable).length,
+    unmapped: products.filter((row) => row.disableReason === 'unmapped').length,
+    missing: products.filter((row) => row.disableReason === 'missing').length,
+    products,
+  };
 }

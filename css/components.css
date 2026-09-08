@@ -1,75 +1,5 @@
-/* Home platform cards */
-#home {
-  width: 104%;
-  margin-left: -2%;
-}
-
-.home-card {
-  float: left;
-  width: 30%;
-  height: 0;
-  padding-top: 42.5%;
-  margin-right: 3%;
-  margin-bottom: 5%;
-  cursor: pointer;
-  transform-origin: 50% 0;
-  display: block;
-  border: none;
-  background: none;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.home-card svg {
-  width: 100%;
-  height: 100%;
-}
-
-.home-card-front {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  transition: all var(--transition-base);
-}
-
-.home-card-logo {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  padding-top: 5%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.home-card:hover .home-card-front,
-.home-card:focus-visible .home-card-front {
-  transform: translateY(-3px);
-}
-
-.home-card,
-.home-card * {
-  cursor: pointer;
-}
-
-.home-card:focus-visible {
-  outline: 2px solid var(--color-white);
-  outline-offset: 4px;
-}
-
-.home-card.is-selected .home-card-front,
-.service-card.is-selected .service-card-front,
-.gcard.is-selected .gcard-front {
-  transform: translateY(-6px);
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
-}
-
-/* Service cards — 2-column grid (all screen sizes) */
+/* Platform / service choice cards */
+#home,
 #services,
 #catalogue-root,
 #order-root,
@@ -79,130 +9,159 @@
   margin-left: 0;
 }
 
-#services::after {
-  content: '';
-  display: table;
-  clear: both;
+.order-grid,
+#home,
+#services {
+  display: grid;
+  gap: 1rem;
 }
 
-.gcard,
-.service-card {
-  float: left;
-  width: 47%;
-  height: 0;
-  padding-top: 66.5%;
-  margin-right: 6%;
-  margin-bottom: 5%;
-  cursor: pointer;
-  transform-origin: 50% 0;
-  display: block;
-  border: none;
-  background: none;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  padding-left: 0;
-  padding-right: 0;
-  padding-bottom: 0;
+.order-grid--platforms,
+#home {
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
 }
 
-.gcard:nth-child(2n),
-.service-card:nth-child(2n) {
-  margin-right: 0;
+.order-grid--services,
+#services {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
 
-.gcard svg,
-.service-card svg {
-  width: 100%;
-  height: 100%;
-}
-
-.gcard-front,
-.service-card-front {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  transition: all var(--transition-base);
-}
-
-.gcard:hover .gcard-front,
-.gcard:focus-visible .gcard-front,
-.service-card:hover .service-card-front,
-.service-card:focus-visible .service-card-front {
-  transform: translateY(-3px);
-}
-
-.gcard-logo,
-.service-card-logo {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-}
-
-.gcard-value,
-.service-card-value {
-  position: absolute;
-  left: 15%;
-  z-index: 2;
-  right: 9px;
-  bottom: 7px;
-  color: var(--color-card-text);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.gcard-type,
-.service-card-type {
-  bottom: auto;
-  top: 7px;
-  font-weight: 700;
-  text-transform: capitalize;
-  left: 10%;
-  right: 10%;
-}
-
-.gcard-type p,
-.service-card-type p {
-  color: #000;
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.service-title {
-  text-align: center;
-}
-
-.gcard,
-.gcard *,
+.choice-card,
+.home-card,
 .service-card,
-.service-card * {
+.gcard {
+  position: relative;
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-height: 168px;
+  padding: 1.15rem 0.9rem 1.2rem;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  background: rgba(20, 22, 26, 0.48);
+  color: var(--color-white);
+  text-decoration: none;
+  text-align: center;
+  font: inherit;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.choice-card *,
+.home-card *,
+.service-card *,
+.gcard * {
   cursor: pointer;
 }
 
-.service-card:focus-visible {
+.choice-card:hover,
+.choice-card:focus-visible,
+.home-card:hover,
+.home-card:focus-visible,
+.service-card:hover,
+.service-card:focus-visible,
+.gcard:hover,
+.gcard:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.82);
+}
+
+.choice-card:focus-visible,
+.home-card:focus-visible,
+.service-card:focus-visible,
+.gcard:focus-visible {
   outline: 2px solid var(--color-white);
   outline-offset: 4px;
 }
 
+.choice-card.is-selected,
+.home-card.is-selected,
+.service-card.is-selected,
+.gcard.is-selected {
+  border-color: var(--color-white);
+  box-shadow:
+    0 0 0 4px var(--color-white),
+    0 16px 32px rgba(0, 0, 0, 0.38);
+  transform: translateY(-4px) scale(1.03);
+  color: var(--color-white);
+}
+
+.choice-card--instagram.is-selected {
+  background: var(--gradient-instagram);
+}
+
+.choice-card--tiktok.is-selected {
+  background: var(--gradient-tiktok);
+}
+
+.choice-card--youtube.is-selected {
+  background: var(--gradient-youtube);
+}
+
+.choice-card--facebook.is-selected {
+  background: var(--gradient-facebook);
+}
+
+.choice-card.is-selected::after,
+.home-card.is-selected::after,
+.service-card.is-selected::after {
+  content: '';
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background-color: var(--color-white);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%231f2227' d='M6.2 11.4 2.8 8l1.1-1.1 2.3 2.3 5.9-5.9L13.2 4.4z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 0.75rem;
+}
+
+.choice-card__icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.choice-card__icon img,
+.choice-card__icon svg {
+  width: 56px;
+  height: 56px;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
+}
+
+.choice-card__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-shadow: 1px 1px rgba(0, 0, 0, 0.28);
+}
+
+.choice-card__meta,
 .service-card-desc {
-  font-size: 11px;
-  color: var(--color-card-text);
-  text-align: center;
-  padding: 0 10%;
-  margin-top: 28%;
+  font-size: 0.85rem;
   line-height: 1.3;
-  max-height: 2.6em;
-  overflow: hidden;
+  opacity: 0.88;
+  max-width: 14rem;
+}
+
+.choice-card.is-selected .choice-card__meta {
+  opacity: 1;
+  font-weight: 700;
 }
 
 .content--why-link {
@@ -351,9 +310,7 @@
 }
 
 .order-grid::after {
-  content: '';
-  display: table;
-  clear: both;
+  content: none;
 }
 
 .checkout-panel {
@@ -468,6 +425,19 @@
   margin-top: 2.5rem;
 }
 
+.content--trust h2:first-child {
+  margin-top: 1.25rem;
+}
+
+.content--trust p {
+  text-align: left;
+}
+
+.content--trust > p:first-of-type {
+  font-size: 1.35rem;
+  line-height: 1.45;
+}
+
 .content--trust ol {
   list-style: decimal;
   margin: 0.75rem 0 0 1.25rem;
@@ -482,44 +452,24 @@
 }
 
 @media only screen and (max-width: 768px) {
-  #home {
+  #home,
+  #services,
+  #catalogue-root {
     width: 100%;
     margin: 0;
   }
 
-  .home-card {
-    width: 30vw;
-    padding-top: 42.5vw;
-    margin: 0 5.5vw 5vw 0;
+  .choice-card,
+  .home-card,
+  .service-card,
+  .gcard {
+    min-height: 148px;
+    padding: 1rem 0.75rem;
   }
 
-  .home-card:nth-child(2n) {
-    margin-right: 0;
-  }
-
-  #services,
-  #catalogue-root {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  #services .service-card,
-  #services .gcard {
-    float: left;
-    width: 47%;
-    padding-top: 66.5%;
-    margin: 0 6% 5vw 0 !important;
-  }
-
-  #services .service-card:nth-child(2n),
-  #services .gcard:nth-child(2n) {
-    margin-right: 0 !important;
-  }
-
-  .service-card-type p,
-  .gcard-type p {
-    font-size: 1.2rem;
-    font-weight: 700;
+  .choice-card__icon {
+    width: 52px;
+    height: 52px;
   }
 
   .lds-ripple {

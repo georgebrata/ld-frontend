@@ -117,6 +117,35 @@ export function adaptSheetCatalogue(payload, defaults = {}) {
 }
 
 /**
+ * Map a `public.products` row onto the retail service model.
+ * @param {Record<string, unknown>} row
+ * @param {{ defaultCurrency?: string, defaultMarkup?: number }} [defaults]
+ * @returns {import('./retail-catalogue.js').RetailService|null}
+ */
+export function productRowToRetail(row, defaults = {}) {
+  if (!row || typeof row !== 'object') return null;
+  return normalizeRetailRow(
+    {
+      id: row.id,
+      Platform: row.platform_label || row.platformLabel || row.platform,
+      Service: row.service,
+      Description: row.description,
+      Inputs: row.inputs,
+      Visible: row.visible,
+      socialpanelId: row.socialpanel_id ?? row.socialpanelId,
+      rateUnit: row.rate_unit ?? row.rateUnit,
+      retailCurrency: row.retail_currency ?? row.retailCurrency,
+      markupMultiplier: row.markup_multiplier ?? row.markupMultiplier,
+      quantityStep: row.quantity_step ?? row.quantityStep,
+      quantityDefault: row.quantity_default ?? row.quantityDefault,
+      packagePriceMinor: row.package_price_minor ?? row.packagePriceMinor,
+      dripEnabled: row.drip_enabled ?? row.dripEnabled,
+    },
+    defaults
+  );
+}
+
+/**
  * Overlay provider ids from `RETAIL_SOCIALPANEL_IDS` JSON (`{"01":"123"}`)
  * without replacing the bundled retail rows.
  * @param {import('./retail-catalogue.js').RetailService[]} rows
@@ -141,8 +170,9 @@ export function applySocialpanelIdOverlay(rows, raw) {
 }
 
 /**
- * Load retail services: optional remote sheet JSON, else bundled catalogue.
+ * Load retail services: `products` table, optional remote sheet JSON, else bundled catalogue.
  * @param {{
+ *   listProducts?: () => Promise<unknown[]>,
  *   sheetUrl?: string,
  *   socialpanelIds?: string|Record<string, unknown>,
  *   fetchImpl?: typeof fetch,
@@ -153,7 +183,18 @@ export function applySocialpanelIdOverlay(rows, raw) {
  */
 export async function loadRetailCatalogue(options = {}) {
   let rows;
-  if (options.sheetUrl) {
+  if (typeof options.listProducts === 'function') {
+    try {
+      const products = await options.listProducts();
+      const adapted = Array.isArray(products)
+        ? products.map((row) => productRowToRetail(/** @type {any} */ (row), options)).filter(Boolean)
+        : [];
+      if (adapted.length) rows = adapted;
+    } catch {
+      rows = undefined;
+    }
+  }
+  if (!rows && options.sheetUrl) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs || 8000);
     try {

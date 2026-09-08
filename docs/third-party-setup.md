@@ -17,10 +17,11 @@ npx supabase functions deploy create-checkout --no-verify-jwt
 npx supabase functions deploy stripe-webhook --no-verify-jwt
 npx supabase functions deploy order-status --no-verify-jwt
 npx supabase functions deploy process-jobs --no-verify-jwt
+npx supabase functions deploy refresh-catalogue --no-verify-jwt
 ```
 
 Project `xvrvxofujpqavgnprpmq` already has these five functions deployed with `verify_jwt = false`.
-7. Worker: `public.kick_process_jobs()` posts to `process-jobs` every minute via pg_cron when that extension is enabled. You can also Integrations → Cron: every minute `POST /functions/v1/process-jobs` with header `Authorization: Bearer <WORKER_SECRET>`.
+7. Worker: `public.kick_process_jobs()` posts to `process-jobs` every minute via pg_cron when that extension is enabled. `public.kick_refresh_catalogue()` posts to `refresh-catalogue` daily at 06:00 UTC to rewrite `catalogue_cache` from SocialPanel24. You can also Integrations → Cron: `POST /functions/v1/process-jobs` or `POST /functions/v1/refresh-catalogue` with header `Authorization: Bearer <WORKER_SECRET>`.
 
 Generate `WORKER_SECRET` with a long random string (not the anon key).
 
@@ -74,4 +75,4 @@ Generate `WORKER_SECRET` with a long random string (not the anon key).
 - Missing `RESEND_API_KEY` and unverified `like-dealer.com` DNS → receipts stay queued/fail.
 - Empty `SUPABASE_*` in `js/config.js` → “Checkout is not configured”.
 - No webhook secret → Stripe events are rejected.
-- No cron / worker secret → paid orders sit until you POST `process-jobs`.
+- No cron / worker secret → paid orders sit until you POST `process-jobs`. Catalogue cache will not refresh on the daily schedule until `refresh-catalogue` is deployed and `APP_FUNCTIONS_URL` / `WORKER_SECRET` are set.

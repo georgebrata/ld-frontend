@@ -62,6 +62,7 @@ Project `xvrvxofujpqavgnprpmq`:
 - Stripe test webhook `we_1UDVKODDSooeTCXK56bgztdl` exists for that functions URL. `stripe-webhook` v4 ignores unknown sessions after signature verification.
 - `public.app_secrets` holds non-key config, `WORKER_SECRET`, `STRIPE_SECRET_KEY`, `RESEND_API_KEY`, and the CLI-sandbox `STRIPE_WEBHOOK_SECRET`. `anon` cannot SELECT.
 - `cron.job` `ld-process-jobs` runs every minute (`select public.kick_process_jobs()`).
+- `cron.job` `ld-refresh-catalogue` runs daily at 06:00 UTC (`select public.kick_refresh_catalogue()`).
 - Resend domain `like-dealer.com` is created, not yet DNS-verified.
 
 Live guest purchase 8 September 2026 (`http://127.0.0.1:8765/` → Stripe test card `4242…`): order `LD-FE92D6`, Instagram Likes × 1000, `$0.52`. Webhook marked `paid`. `process-jobs` submitted SocialPanel24 order `119674166` (`fulfillment_status=in_progress`). Resend delivered the customer receipt; owner mail was accepted for `owner@like-dealer.com`. Success page showed payment received / processing and did not treat return-URL arrival as fulfilment complete.

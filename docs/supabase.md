@@ -3,10 +3,10 @@
 ## Project
 
 1. Create a project.
-2. Apply `supabase/migrations/20260908000001_init.sql`, then `20260908000002_app_secrets.sql` and `20260908000003_job_cron.sql`.
+2. Apply `supabase/migrations/20260908000001_init.sql`, then `20260908000002_app_secrets.sql`, `20260908000003_job_cron.sql`, and `20260908225422_catalogue_cron.sql`.
 3. Set secrets from `supabase/.env.example` (`supabase secrets set`) **or** insert into `public.app_secrets` (RLS on; no browser grants). Non-empty `Deno.env` wins.
 4. Deploy functions. Guest functions and the Stripe webhook use `verify_jwt = false` in `supabase/config.toml`.
-5. `pg_cron` runs `select public.kick_process_jobs()` every minute. You can also schedule `POST process-jobs` with `Authorization: Bearer $WORKER_SECRET`.
+5. `pg_cron` runs `select public.kick_process_jobs()` every minute and `select public.kick_refresh_catalogue()` daily at 06:00 UTC. You can also `POST process-jobs` or `POST refresh-catalogue` with `Authorization: Bearer $WORKER_SECRET`.
 
 ## Tables (private)
 

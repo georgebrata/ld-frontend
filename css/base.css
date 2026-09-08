@@ -133,7 +133,12 @@ body {
   left: 50%;
   margin-left: -590px;
   overflow: hidden;
-  animation: page-enter 0.5s ease-out both;
+  animation: page-enter-fade 0.5s ease-out both;
+  backface-visibility: hidden;
+}
+
+#background.is-moving {
+  will-change: transform;
 }
 
 #background svg {
@@ -146,12 +151,12 @@ body {
 
 #background svg #Opened {
   opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 #background svg #Closed {
   opacity: 1;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 #wrapper.coat-open #background svg #Opened {
@@ -378,11 +383,15 @@ body {
   box-sizing: border-box;
   padding: 90px 140px 150px 460px;
   opacity: 0;
-  transition: opacity 0.4s cubic-bezier(0.455, 0.03, 0.515, 0.955);
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 #page.is-revealed {
   opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .page-title {
@@ -455,9 +464,18 @@ h6 {
     transition-duration: 0.01ms !important;
   }
 
-  .home-card:hover .home-card-front,
-  .gcard:hover .gcard-front,
-  .service-card:hover .service-card-front {
+  .choice-card:hover,
+  .choice-card:focus-visible,
+  .home-card:hover,
+  .home-card:focus-visible,
+  .service-card:hover,
+  .service-card:focus-visible,
+  .gcard:hover,
+  .gcard:focus-visible,
+  .choice-card.is-selected,
+  .home-card.is-selected,
+  .service-card.is-selected,
+  .gcard.is-selected {
     transform: none;
   }
 
@@ -479,10 +497,16 @@ h6 {
 
   #page {
     opacity: 1;
+    transform: none;
   }
 }
 
 @media only screen and (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   body {
     min-width: 0;
   }
@@ -546,11 +570,14 @@ h6 {
     text-align: left;
     text-shadow: 1vw 1vw rgba(0, 0, 0, 0.3);
     letter-spacing: 0.1vw;
+    animation: page-enter-fade 0.5s ease-out both;
   }
 
-  #intro1 {
+  #intro1,
+  .typed-intro {
     font-size: 6vw;
-    line-height: 12vw;
+    line-height: 1.15;
+    min-height: 2.4em;
   }
 
   #intro2,

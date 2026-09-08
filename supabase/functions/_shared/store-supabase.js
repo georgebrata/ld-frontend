@@ -209,6 +209,16 @@ export function createSupabaseStore(client, clock = () => new Date()) {
       return data || [];
     },
 
+    async listProducts() {
+      const { data, error } = await client
+        .from('products')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+
     async listAppSecrets() {
       const { data, error } = await client.from('app_secrets').select('name, value');
       if (error) throw error;

@@ -243,6 +243,10 @@ export function createMemoryStore(clock = () => new Date()) {
     async listAppSecrets() {
       return {};
     },
+
+    async listProducts() {
+      return [];
+    },
   };
 
   return store;

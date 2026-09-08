@@ -15,8 +15,6 @@ const THEME_COLORS = {
   youtube: '#ff0000',
   facebook: '#4c66a4',
 };
-const CARD_SVG_PATH =
-  'M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z';
 const STATIC_PLATFORM_FOLDERS = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 
 /**
@@ -141,17 +139,13 @@ function formatCardPrice(service) {
   return 'Price at checkout';
 }
 
-function cardFrameSvg() {
-  return `<svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="${CARD_SVG_PATH}"></path></g></svg>`;
-}
-
 /**
  * @param {string} platform
  * @param {string} platformLabel
  */
 function platformIconHtml(platform, platformLabel) {
   if (KNOWN_ICONS.has(platform)) {
-    return `<img src="/assets/cardLogos/${platform}.svg" alt="${escapeHtml(platformLabel)} logo" width="70%" />`;
+    return `<img src="/assets/icons/${platform}.svg" alt="${escapeHtml(platformLabel)} logo" />`;
   }
   const initials = escapeHtml(platformLabel.trim().slice(0, 2).toUpperCase());
   return `<span class="platform-badge">${initials}</span>`;
@@ -163,11 +157,9 @@ function platformIconHtml(platform, platformLabel) {
 function renderHomeCards(platforms) {
   const cards = platforms
     .map(
-      (platform) => `<a class="home-card" href="/${platform.platform}/" aria-label="${escapeHtml(platform.platformLabel)} services">
-        <div class="home-card-front">
-          ${cardFrameSvg()}
-          <div class="home-card-logo">${platformIconHtml(platform.platform, platform.platformLabel)}</div>
-        </div>
+      (platform) => `<a class="choice-card choice-card--${escapeHtml(platform.platform)} home-card" href="/${platform.platform}/" aria-label="${escapeHtml(platform.platformLabel)} services">
+        <span class="choice-card__icon">${platformIconHtml(platform.platform, platform.platformLabel)}</span>
+        <span class="choice-card__title">${escapeHtml(platform.platformLabel)}</span>
       </a>`
     )
     .join('\n      ');
@@ -180,22 +172,11 @@ function renderHomeCards(platforms) {
 function renderServiceCards(services) {
   const cards = services
     .map((service) => {
-      const icon = KNOWN_ICONS.has(service.platform)
-        ? `<img src="/assets/cardLogos/${service.platform}.svg" alt="${escapeHtml(service.platformLabel)} logo" />`
-        : `<span class="platform-badge">${escapeHtml(service.platformLabel.trim().slice(0, 2).toUpperCase())}</span>`;
-      const desc = service.description
-        ? `<p class="service-card-desc">${escapeHtml(service.description)}</p>`
-        : '';
-      return `<a class="gcard service-card" href="${escapeHtml(service.url)}" aria-label="${escapeHtml(service.label)}">
-        <div class="gcard-front service-card-front">
-          ${cardFrameSvg()}
-          <div class="gcard-logo service-card-logo">
-            <div class="service-title gcard-value gcard-type service-card-type"><p>${escapeHtml(service.service)}</p></div>
-            ${icon}
-            ${desc}
-            <div class="service-title gcard-value service-card-value"><p>${escapeHtml(formatCardPrice(service))}</p></div>
-          </div>
-        </div>
+      const meta = service.description || formatCardPrice(service);
+      return `<a class="choice-card choice-card--${escapeHtml(service.platform)} service-card" href="${escapeHtml(service.url)}" aria-label="${escapeHtml(service.label)}">
+        <span class="choice-card__icon">${platformIconHtml(service.platform, service.platformLabel)}</span>
+        <span class="choice-card__title">${escapeHtml(service.service)}</span>
+        <span class="choice-card__meta">${escapeHtml(meta)}</span>
       </a>`;
     })
     .join('\n      ');
@@ -244,14 +225,14 @@ function resourceHints(type, opts) {
     for (const platform of opts.platforms ?? []) {
       links.push(`<link rel="prefetch" href="/${platform.platform}/" />`);
       if (KNOWN_ICONS.has(platform.platform)) {
-        links.push(`<link rel="prefetch" href="/assets/cardLogos/${platform.platform}.svg" as="image" />`);
+        links.push(`<link rel="prefetch" href="/assets/icons/${platform.platform}.svg" as="image" />`);
       }
     }
   }
 
   if (type === 'platform' && opts.platform) {
     if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/cardLogos/${opts.platform}.svg" as="image" />`);
+      links.push(`<link rel="prefetch" href="/assets/icons/${opts.platform}.svg" as="image" />`);
     }
     for (const service of (opts.services ?? []).filter((s) => s.platform === opts.platform)) {
       links.push(`<link rel="prefetch" href="${escapeHtml(service.url)}" />`);
@@ -261,7 +242,7 @@ function resourceHints(type, opts) {
   if (type === 'service' && opts.platform) {
     links.push(`<link rel="prefetch" href="/${opts.platform}/" />`);
     if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/cardLogos/${opts.platform}.svg" as="image" />`);
+      links.push(`<link rel="prefetch" href="/assets/icons/${opts.platform}.svg" as="image" />`);
     }
   }
 
@@ -333,20 +314,21 @@ function snapshotJson(services) {
   return JSON.stringify({ services: publicServices, phrases }).replace(/</g, '\\u003c');
 }
 
-const TRUST_COPY = `<h2>What LikeDealer is</h2>
-      <p>LikeDealer is a simple way to buy social-media engagement. You do not need an account. Pick a platform, choose a service, and pay once.</p>
-      <h2>How this page works</h2>
+const TRUST_COPY = `<h2>Don't post into a quiet room.</h2>
+      <p>A post with three likes looks unfinished. A profile with eighty followers looks like nobody showed up. LikeDealer is how you buy the opening crowd — likes, followers, comments, saves — so the next person who lands on your content sees momentum instead of crickets. No account. One payment. You keep your passwords.</p>
+      <h2>Three moves. Then it starts.</h2>
       <ol>
-        <li>Choose a platform</li>
-        <li>Choose a service</li>
-        <li>Enter the required details and pay securely with Stripe</li>
+        <li>Pick a platform</li>
+        <li>Pick the signal you want</li>
+        <li>Drop your link and pay once with Stripe</li>
       </ol>
-      <h2>Pricing</h2>
-      <p>Any price shown on a card is guidance. The amount you pay is calculated on the server at checkout and confirmed by Stripe.</p>
-      <h2>Secure payment</h2>
-      <p>Payments are processed by Stripe. LikeDealer never sees your card number. We never ask for social-media passwords.</p>
-      <h2>After you pay</h2>
-      <p>Paid orders are submitted to the fulfilment provider automatically. Reaching the success page is not required for that work, and it is not proof that delivery is finished. Refunds are handled by support after review — a provider cancellation does not itself refund Stripe.</p>`;
+      <h2>The price you confirm is the price you pay</h2>
+      <p>Card prices are a preview. The real total is calculated on our server at checkout and locked in by Stripe before you pay — no surprise add-ons after you confirm.</p>
+      <h2>Your login stays yours</h2>
+      <p>We never ask for a social-media password. Stripe handles the card. LikeDealer never sees the number.</p>
+      <h2>Pay once. We start the work.</h2>
+      <p>A paid order is sent to fulfilment automatically — you do not have to sit on the success page, and landing there is not proof that delivery is finished. Timing depends on the provider and is not guaranteed here. If something goes wrong, support reviews the paid order; a provider cancellation does not refund Stripe by itself.</p>
+      <p class="content--why-link"><a class="why-page-link" href="/why/">Why this works →</a></p>`;
 
 /**
  * @param {{ label: string, description: string, price: number|null, url: string }} service

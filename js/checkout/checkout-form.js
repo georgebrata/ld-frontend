@@ -108,10 +108,10 @@ export async function mountCheckoutForm(container, service) {
     createEl(
       'p',
       {},
-      'Delivery time depends on the downstream provider and is not guaranteed on this page. Refunds are handled by LikeDealer support after we review the paid order — cancelling a provider order does not itself refund Stripe.'
+      'Once you pay, fulfilment starts automatically. Timing depends on the provider and is not guaranteed on this page. If you need a refund, LikeDealer support reviews the paid order — a provider cancellation does not refund Stripe by itself.'
     )
   );
-  facts.appendChild(createEl('p', {}, 'We never ask for social-media passwords. Payments are processed by Stripe.'));
+  facts.appendChild(createEl('p', {}, 'We never ask for social-media passwords. Stripe processes the payment.'));
   form.appendChild(facts);
 
   const qtyInput = /** @type {HTMLInputElement|null} */ (form.querySelector('[name="quantity"]'));

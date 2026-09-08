@@ -91,12 +91,22 @@ async function fetchLiveCatalogue() {
   if (!response.ok || !json.ok || !Array.isArray(json.data)) {
     throw new Error('Invalid services response');
   }
-  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map((service) =>
+  const live = assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map((service) =>
     toPublicService({
       ...service,
       url: service.url ?? `/${service.platform}/${service.slug}/`,
     })
   );
+  const boot = readBootstrap();
+  if (!Array.isArray(boot) || !boot.length) return live;
+  const have = new Set(live.map((service) => service.id));
+  const extras = assignServiceSlugs(
+    boot.map((row) => toPublicService(normalizeService(row))).filter((service) => service.visible && !have.has(service.id))
+  ).map((service) => ({
+    ...service,
+    url: service.url ?? `/${service.platform}/${service.slug}/`,
+  }));
+  return extras.length ? [...live, ...extras] : live;
 }
 
 export async function getServices(options = {}) {

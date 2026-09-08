@@ -1,5 +1,5 @@
 import { initTypedIntro } from './components/typed-intro.js';
-import { initOnePageOrder } from './order/one-page.js';
+import { initOnePageOrder } from './order/one-page.js?v=20260909d';
 import { initSuccessPage } from './pages/success-page.js';
 import { initCancelPage } from './pages/cancel-page.js';
 

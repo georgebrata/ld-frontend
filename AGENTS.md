@@ -33,7 +33,9 @@
 | Scene | `js/ui/scene.js` |
 | Stepper | `js/order/one-page.js` |
 | Checkout | `js/checkout/checkout-form.js` |
+| Products table | `public.products` (normalized storefront rows; `socialpanel_id` is server-only) |
 | Catalogue join | `supabase/functions/_shared/catalogue.js` |
+| Catalogue refresh | `supabase/functions/refresh-catalogue/index.js` (daily cron → `catalogue_cache`) |
 | Checkout | `supabase/functions/_shared/checkout.js` |
 | Webhook | `supabase/functions/_shared/webhook.js` |
 | Jobs | `supabase/functions/_shared/jobs.js` |

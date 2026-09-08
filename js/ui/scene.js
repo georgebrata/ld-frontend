@@ -86,18 +86,22 @@
     function revealPage() {
       if (!page) return;
       page.classList.add('is-revealed');
-      page.style.opacity = '1';
+      page.style.removeProperty('opacity');
     }
 
     function concealPage() {
       if (!page || prefersReduced) return;
       page.classList.remove('is-revealed');
-      page.style.opacity = '0';
+      page.style.removeProperty('opacity');
+    }
+
+    function isMobileScene() {
+      return window.innerWidth <= 768;
     }
 
     function wiggleCards() {
-      if (prefersReduced) return;
-      document.querySelectorAll('.gcard, .home-card, .service-card').forEach((card) => {
+      if (prefersReduced || isMobileScene()) return;
+      document.querySelectorAll('.choice-card, .gcard, .home-card, .service-card').forEach((card) => {
         animate(
           card,
           [
@@ -123,66 +127,104 @@
       if (menuTrigger) menuTrigger.style.opacity = '1';
     } else {
       if (wrapper) {
-        wrapper.style.opacity = '0';
-        animate(wrapper, [{ transform: 'translateY(500px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], 500, easeOut);
         window.setTimeout(() => wrapper.classList.add('loaded'), 520);
-      }
-      if (intro) {
-        animate(intro, [{ transform: 'translateY(150px)' }, { transform: 'translateY(0)' }], 500, easeOut);
-      }
-      if (background) {
-        animate(background, [{ transform: 'translateY(400px)' }, { transform: 'translateY(0)' }], 500, easeOut);
       }
       if (menuTrigger) {
         menuTrigger.style.opacity = '0';
-        animate(menuTrigger, [{ opacity: 0 }, { opacity: 1 }], 300, easeInOut, 500);
+        animate(menuTrigger, [{ opacity: 0 }, { opacity: 1 }], 300, easeInOut, 400);
       }
     }
 
-    let desktop = window.innerWidth > 768;
+    let desktop = !isMobileScene();
     let coatOpen = prefersReduced;
     let menuOpen = false;
     let lastDelta = window.scrollY || document.documentElement.scrollTop || 0;
     let lastFocused = null;
+    let coatX = 0;
+    let ticking = false;
 
-    function applyParallax(delta) {
-      if (prefersReduced) return;
-      if (desktop) {
-        if (logo) logo.style.transform = `translateY(${delta * 0.7}px)`;
-        if (intro) intro.style.transform = `translateY(${-delta * 0.5}px)`;
-        if (scrolldown) {
-          scrolldown.style.opacity = String(Math.max(1 - delta / 200, 0));
-          scrolldown.style.transform = `translateY(${delta * 0.3}px)`;
-        }
-        if (sky) sky.style.transform = `translateY(${-delta * 0.45}px)`;
-        return;
-      }
-      if (background) {
-        const winWMax = 0.5 * window.innerWidth;
-        background.style.transform = `translateX(${Math.max(-delta / 1.5, -winWMax)}px)`;
-      }
+    function coatThresholds() {
+      if (desktop) return { openAt: 150, closeAt: 70 };
+      const width = window.innerWidth;
+      return {
+        openAt: Math.min(220, width * 0.48),
+        closeAt: Math.min(110, width * 0.22),
+      };
     }
 
-    function onFrame() {
-      const delta = lastDelta;
-      const threshold = desktop ? 150 : 0.5 * window.innerWidth * 1.5;
-      applyParallax(delta);
-      if (delta > threshold && !coatOpen) {
+    function targetCoatX(delta) {
+      if (desktop) return 0;
+      return Math.max(-delta / 1.35, -0.5 * window.innerWidth);
+    }
+
+    function applyDesktopParallax(delta) {
+      if (logo) logo.style.transform = `translate3d(0, ${delta * 0.7}px, 0)`;
+      if (intro) intro.style.transform = `translate3d(0, ${-delta * 0.5}px, 0)`;
+      if (scrolldown) {
+        scrolldown.style.opacity = String(Math.max(1 - delta / 200, 0));
+        scrolldown.style.transform = `translate3d(0, ${delta * 0.3}px, 0)`;
+      }
+      if (sky) sky.style.transform = `translate3d(0, ${-delta * 0.45}px, 0)`;
+    }
+
+    function updateCoat(delta) {
+      const { openAt, closeAt } = coatThresholds();
+      if (delta > openAt && !coatOpen) {
         coatOpen = true;
         setCoat(true);
         revealPage();
         wiggleCards();
-      } else if (delta <= threshold && coatOpen && !prefersReduced) {
+      } else if (delta <= closeAt && coatOpen && !prefersReduced) {
         coatOpen = false;
         setCoat(false);
         concealPage();
       }
     }
 
+    function onFrame() {
+      const delta = lastDelta;
+      const targetX = prefersReduced ? 0 : targetCoatX(delta);
+      if (desktop) {
+        coatX = 0;
+        if (background) {
+          background.classList.remove('is-moving');
+          background.style.removeProperty('transform');
+        }
+        if (!prefersReduced) applyDesktopParallax(delta);
+        updateCoat(delta);
+        return;
+      }
+
+      if (prefersReduced) {
+        updateCoat(delta);
+        return;
+      }
+
+      coatX += (targetX - coatX) * 0.18;
+      if (Math.abs(targetX - coatX) < 0.35) coatX = targetX;
+      if (background) {
+        background.classList.toggle('is-moving', coatX !== targetX || Math.abs(coatX) > 0.35);
+        background.style.transform = `translate3d(${coatX}px, 0, 0)`;
+      }
+      updateCoat(delta);
+      if (coatX !== targetX) requestFrame();
+      else if (background) background.classList.remove('is-moving');
+    }
+
+    function requestFrame() {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        ticking = false;
+        onFrame();
+      });
+    }
+
     window.addEventListener(
       'resize',
       () => {
-        desktop = window.innerWidth > 768;
+        desktop = !isMobileScene();
+        requestFrame();
       },
       { passive: true }
     );
@@ -191,12 +233,12 @@
       'scroll',
       () => {
         lastDelta = window.scrollY || document.documentElement.scrollTop || 0;
-        onFrame();
+        requestFrame();
       },
       { passive: true }
     );
 
-    if (lastDelta > 0) onFrame();
+    if (lastDelta > 0) requestFrame();
 
     function closeMenu() {
       if (!menuOpen || !menuHolder || !menuTrigger) return;
