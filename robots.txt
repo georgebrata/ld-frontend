@@ -3,5 +3,6 @@ Allow: /
 Allow: /success/
 Allow: /cancel/
 Disallow: /confirmation.html
+Disallow: /admin/
 
 Sitemap: https://like-dealer.com/sitemap.xml

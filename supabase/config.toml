@@ -29,3 +29,14 @@ verify_jwt = false
 
 [functions.resend-webhook]
 verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+# Public GoTrue signup stays closed. The first admin is created by the admin
+# Edge Function (service role) while ADMIN_REGISTERED is true.
+[auth]
+enable_signup = false
+
+[auth.email]
+enable_signup = false

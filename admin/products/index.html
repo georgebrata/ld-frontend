@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Products | Like Dealer admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; upgrade-insecure-requests" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="icon" href="/favicon/safari-pinned-tab.svg" />
+</head>
+<body class="page-admin" data-page="admin-products">
+  <header class="admin-top">
+    <div>
+      <p class="admin-brand">Like Dealer</p>
+      <h1>Product mapping</h1>
+    </div>
+    <div class="admin-top__actions">
+      <span id="admin-user"></span>
+      <button type="button" class="btn btn--secondary" id="admin-new">New product</button>
+      <button type="button" class="btn" id="admin-publish">Publish catalogue</button>
+      <button type="button" class="btn btn--secondary" id="admin-signout">Sign out</button>
+    </div>
+  </header>
+  <p id="admin-banner" class="admin-banner" hidden></p>
+  <nav class="admin-tabs" aria-label="Admin sections">
+    <button type="button" class="is-active" data-tab="products">Storefront products</button>
+    <button type="button" data-tab="provider">Provider catalogue</button>
+  </nav>
+  <section id="admin-tab-products">
+    <div class="admin-filters">
+      <label class="form-field">
+        <span>Search</span>
+        <input id="filter-q" class="admin-input" type="search" placeholder="Name, id, mapping" />
+      </label>
+      <label class="form-field">
+        <span>Platform</span>
+        <select id="filter-platform" class="admin-input">
+          <option value="">All platforms</option>
+        </select>
+      </label>
+      <label class="form-field">
+        <span>Mapping</span>
+        <select id="filter-status" class="admin-input">
+          <option value="">Any status</option>
+          <option value="mapped">Mapped</option>
+          <option value="unmapped">Unmapped</option>
+          <option value="missing">Missing on provider</option>
+          <option value="unsupported_type">Unsupported type</option>
+          <option value="hidden">Hidden</option>
+        </select>
+      </label>
+      <label class="form-field">
+        <span>Rate unit</span>
+        <select id="filter-rate" class="admin-input">
+          <option value="">Any unit</option>
+          <option value="per_1000">per_1000</option>
+          <option value="per_unit">per_unit</option>
+          <option value="package">package</option>
+          <option value="per_comment">per_comment</option>
+        </select>
+      </label>
+    </div>
+    <div class="admin-split">
+      <aside id="admin-list" aria-label="Storefront products"></aside>
+      <section id="admin-editor" aria-label="Product editor"></section>
+    </div>
+  </section>
+  <section id="admin-tab-provider" hidden>
+    <div id="admin-provider-toolbar" class="admin-filters"></div>
+    <div id="admin-provider-list"></div>
+  </section>
+  <script type="module" src="/js/admin/products-page.js"></script>
+</body>
+</html>

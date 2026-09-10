@@ -3,14 +3,16 @@
 ## Project
 
 1. Create a project.
-2. Apply **all** files in `supabase/migrations/` in filename order (through `20260910000002_ops_agent.sql`).
+2. Apply **all** files in `supabase/migrations/` in filename order (through `20260910000003_admin.sql`).
 3. Set secrets from `supabase/.env.example` (`supabase secrets set`) **or** insert into `public.app_secrets` (RLS on; no browser grants). Non-empty `Deno.env` wins. Prefer hosted function secrets over `app_secrets` for keys.
-4. Deploy functions listed in `supabase/config.toml` (`catalogue`, `create-checkout`, `stripe-webhook`, `order-status`, `process-jobs`, `refresh-catalogue`, `health`, `operator`, `resend-webhook`).
+4. Deploy functions listed in `supabase/config.toml` (`catalogue`, `create-checkout`, `stripe-webhook`, `order-status`, `process-jobs`, `refresh-catalogue`, `health`, `operator`, `resend-webhook`, `admin`). Disable public Auth signup in the hosted project (local `config.toml` already sets `enable_signup = false`).
 5. `pg_cron` runs `select public.kick_process_jobs()` every minute, `select public.kick_refresh_catalogue()` daily at 06:00 UTC, and `select public.purge_retained_rows()` hourly when the extension exists.
 
 ## Tables (private)
 
-Operational tables stay in `public` with RLS enabled and **no** `anon` / `authenticated` grants: `orders`, `stripe_events`, `jobs`, `products`, `catalogue_cache`, `rate_limits`, `app_secrets`, `external_requests`, `order_events`, `operator_actions`, `job_attempts`, `retention_settings`.
+Operational tables stay in `public` with RLS enabled and **no** `anon` / `authenticated` grants: `orders`, `stripe_events`, `jobs`, `products`, `catalogue_cache`, `rate_limits`, `app_secrets`, `external_requests`, `order_events`, `operator_actions`, `job_attempts`, `retention_settings`, `admin_users`, `app_flags`, `product_audit`.
+
+The first admin is created at `/admin/register/` while `app_flags.ADMIN_REGISTERED` is true (registration open). The `admin` Edge Function inserts `admin_users` via the Auth admin API and then flips the flag to false.
 
 Sanitized read views live in schema `agent` (`queue_health`, `order_states`, `catalogue_anomalies`) — no emails, comments, tokens, or targets. Service role only.
 
@@ -30,7 +32,7 @@ Allowlisted origins (`CORS_ALLOW_ORIGINS` / `SITE_URL`). Local `http(s)://localh
 
 ## Rate limits
 
-Persistent via `consume_rate_limit`: catalogue 60/min, create-checkout 10/min, order-status 30/min, per client IP. Expired buckets are purged.
+Persistent via `consume_rate_limit`: catalogue 60/min, create-checkout 10/min, order-status 30/min, admin public 30/min, admin register 5/5min, admin authenticated 60/min, per client IP. Expired buckets are purged.
 
 ## Local
 

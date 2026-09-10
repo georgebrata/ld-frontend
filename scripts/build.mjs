@@ -424,7 +424,7 @@ async function removeStaleServiceDirs(dir, keep) {
 }
 
 async function copyStatic(version) {
-  const dirs = ['css', 'js', 'assets', 'favicon', 'why', 'success', 'cancel', 'legal'];
+  const dirs = ['css', 'js', 'assets', 'favicon', 'why', 'success', 'cancel', 'legal', 'admin'];
   for (const dir of dirs) {
     const from = path.join(ROOT, dir);
     try {
@@ -555,6 +555,9 @@ async function main() {
     if (home.includes('cdn.jsdelivr.net')) throw new Error('build check failed: jsDelivr in dist');
     const headers = await readFile(path.join(DIST, '_headers'), 'utf8');
     if (!headers.includes('X-Content-Type-Options')) throw new Error('build check failed: _headers');
+    const admin = await readFile(path.join(DIST, 'admin/index.html'), 'utf8');
+    if (!admin.includes('data-page="admin-login"')) throw new Error('build check failed: admin page');
+    if (admin.includes('socialpanelId')) throw new Error('build check failed: socialpanelId in admin html');
   }
 
   console.log(`Built dist/ with ${platforms.length} platform page(s) and ${services.length} service page(s).`);

@@ -360,6 +360,104 @@ export function createSupabaseStore(client, clock = () => new Date()) {
       });
       return extra;
     },
+
+    async getAdminUser(userId) {
+      const { data, error } = await client.from('admin_users').select('*').eq('user_id', userId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async countAdmins() {
+      const { count, error } = await client
+        .from('admin_users')
+        .select('user_id', { count: 'exact', head: true })
+        .is('disabled_at', null);
+      if (error) throw error;
+      return Number(count || 0);
+    },
+
+    async insertAdminUser(row) {
+      const { data, error } = await client
+        .from('admin_users')
+        .insert({
+          user_id: row.user_id,
+          email: row.email,
+          role: row.role || 'admin',
+          disabled_at: row.disabled_at || null,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async getFlag(name) {
+      const { data, error } = await client.from('app_flags').select('*').eq('name', name).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async setFlag(name, enabled) {
+      const { data, error } = await client
+        .from('app_flags')
+        .upsert({ name, enabled: Boolean(enabled), updated_at: clock().toISOString() }, { onConflict: 'name' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async getProduct(id) {
+      const { data, error } = await client.from('products').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async upsertProduct(row) {
+      const { data, error } = await client.from('products').upsert(row, { onConflict: 'id' }).select('*').single();
+      if (error) throw error;
+      return data;
+    },
+
+    async deleteProduct(id) {
+      const { data, error } = await client.from('products').delete().eq('id', id).select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async bulkUpdateSortOrder(items) {
+      const updates = Array.isArray(items) ? items : [];
+      /** @type {any[]} */
+      const next = [];
+      for (const item of updates) {
+        const { data, error } = await client
+          .from('products')
+          .update({ sort_order: item.sort_order })
+          .eq('id', item.id)
+          .select('*')
+          .maybeSingle();
+        if (error) throw error;
+        if (data) next.push(data);
+      }
+      return next;
+    },
+
+    async insertProductAudit(row) {
+      const { data, error } = await client
+        .from('product_audit')
+        .insert({
+          actor_user_id: row.actor_user_id || null,
+          actor_email: row.actor_email || null,
+          action: row.action,
+          product_id: row.product_id || null,
+          before: row.before || null,
+          after: row.after || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   };
 
   return store;

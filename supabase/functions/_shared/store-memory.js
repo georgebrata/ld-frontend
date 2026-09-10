@@ -22,11 +22,28 @@ export function createMemoryStore(clock = () => new Date()) {
   const rateLimits = new Map();
   /** @type {Map<string, { expires: number, value: any }>} */
   const cache = new Map();
+  /** @type {any[]} */
+  const products = [];
+  /** @type {any[]} */
+  const adminUsers = [];
+  /** @type {Map<string, { name: string, enabled: boolean, updated_at: string }>} */
+  const flags = new Map();
+  flags.set('ADMIN_REGISTERED', {
+    name: 'ADMIN_REGISTERED',
+    enabled: true,
+    updated_at: nowIso(clock()),
+  });
+  /** @type {any[]} */
+  const productAudit = [];
 
   const store = {
     orders,
     events,
     jobs,
+    products,
+    adminUsers,
+    flags,
+    productAudit,
 
     async transaction(fn) {
       return fn(store);
@@ -394,7 +411,107 @@ export function createMemoryStore(clock = () => new Date()) {
     },
 
     async listProducts() {
-      return [];
+      return products
+        .slice()
+        .sort((a, b) => (a.sort_order - b.sort_order) || String(a.id).localeCompare(String(b.id)))
+        .map((row) => ({ ...row }));
+    },
+
+    async getAdminUser(userId) {
+      return adminUsers.find((row) => row.user_id === userId) || null;
+    },
+
+    async countAdmins() {
+      return adminUsers.filter((row) => !row.disabled_at).length;
+    },
+
+    async insertAdminUser(row) {
+      if (adminUsers.some((existing) => existing.user_id === row.user_id)) {
+        const err = new Error('duplicate_admin');
+        err.code = '23505';
+        throw err;
+      }
+      const item = {
+        user_id: row.user_id,
+        email: row.email,
+        role: row.role || 'admin',
+        disabled_at: row.disabled_at || null,
+        created_at: nowIso(clock()),
+      };
+      adminUsers.push(item);
+      return { ...item };
+    },
+
+    async getFlag(name) {
+      const row = flags.get(name);
+      return row ? { ...row } : null;
+    },
+
+    async setFlag(name, enabled) {
+      const row = { name, enabled: Boolean(enabled), updated_at: nowIso(clock()) };
+      flags.set(name, row);
+      return { ...row };
+    },
+
+    async getProduct(id) {
+      const row = products.find((item) => item.id === id);
+      return row ? { ...row } : null;
+    },
+
+    async upsertProduct(row) {
+      const index = products.findIndex((item) => item.id === row.id);
+      const duplicate = products.find(
+        (item) =>
+          item.id !== row.id &&
+          ((item.platform === row.platform && item.service === row.service) ||
+            (item.platform === row.platform && item.slug === row.slug))
+      );
+      if (duplicate) {
+        const err = new Error('duplicate_product');
+        err.code = '23505';
+        throw err;
+      }
+      if (index < 0) {
+        const created = { ...row, created_at: row.created_at || nowIso(clock()), updated_at: nowIso(clock()) };
+        products.push(created);
+        return { ...created };
+      }
+      products[index] = { ...products[index], ...row, updated_at: nowIso(clock()) };
+      return { ...products[index] };
+    },
+
+    async deleteProduct(id) {
+      const index = products.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const [removed] = products.splice(index, 1);
+      return { ...removed };
+    },
+
+    async bulkUpdateSortOrder(items) {
+      const next = [];
+      for (const item of items || []) {
+        const row = products.find((product) => product.id === item.id);
+        if (!row) continue;
+        row.sort_order = item.sort_order;
+        row.updated_at = nowIso(clock());
+        next.push({ ...row });
+      }
+      return next;
+    },
+
+    async insertProductAudit(row) {
+      const item = {
+        id: crypto.randomUUID(),
+        actor_user_id: row.actor_user_id || null,
+        actor_email: row.actor_email || null,
+        action: row.action,
+        product_id: row.product_id || null,
+        before: row.before || null,
+        after: row.after || null,
+        created_at: nowIso(clock()),
+      };
+      productAudit.push(item);
+      return { ...item };
     },
   };
 
