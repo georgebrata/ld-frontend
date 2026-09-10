@@ -34,6 +34,9 @@ test('validateInput covers supported types', () => {
   assert.equal(validateInput('comments', '').valid, false);
   assert.equal(validateInput('quantity', '500', { min: 100, max: 1000 }).valid, true);
   assert.equal(validateInput('quantity', '50', { min: 100, max: 1000 }).valid, false);
+  assert.equal(validateInput('quantity', '150', { min: 50, max: 10000, step: 100 }).valid, false);
+  assert.equal(validateInput('quantity', '   ', { }).valid, false);
+  assert.equal(validateInput('comments', '  \n  ').valid, false);
 });
 
 test('formatOrderId uses last six characters', () => {

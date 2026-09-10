@@ -75,44 +75,119 @@ export function createMemoryStore(clock = () => new Date()) {
       return { ...orders[index] };
     },
 
-    async insertStripeEvent(eventId, eventType, livemode) {
-      if (events.has(eventId)) return { duplicate: true };
-      events.set(eventId, { event_id: eventId, event_type: eventType, livemode, processed_at: nowIso(clock()) });
-      return { duplicate: false };
+    async insertStripeEvent(eventId, eventType, livemode, extra = {}) {
+      if (events.has(eventId)) return { duplicate: true, row: events.get(eventId) };
+      const row = {
+        event_id: eventId,
+        event_type: eventType,
+        livemode,
+        processed_at: nowIso(clock()),
+        outcome: extra.outcome || 'received',
+        mismatch: extra.mismatch || null,
+        object_id: extra.objectId || null,
+        session_id: extra.sessionId || null,
+        payment_intent_id: extra.paymentIntentId || null,
+      };
+      events.set(eventId, row);
+      return { duplicate: false, row };
     },
 
     /**
      * Atomic paid transition: only the first pending→paid enqueues work.
+     * Session ids must be cs_…; PaymentIntent ids never overwrite stripe_session_id.
      */
-    async applyPaymentEvent({ eventId, eventType, livemode, orderId, sessionId, amountMinor, currency, paymentIntentId, desiredPayment }) {
-      const event = await store.insertStripeEvent(eventId, eventType, livemode);
-      if (event.duplicate) return { duplicate: true, enqueued: false, order: await store.getOrderById(orderId) };
+    async applyPaymentEvent({
+      eventId,
+      eventType,
+      livemode,
+      orderId,
+      sessionId,
+      amountMinor,
+      currency,
+      paymentIntentId,
+      desiredPayment,
+      objectId,
+    }) {
+      const existingEvent = events.get(eventId);
+      if (existingEvent && ['accepted', 'ignored', 'duplicate'].includes(existingEvent.outcome)) {
+        return { duplicate: true, enqueued: false, outcome: 'duplicate', order: await store.getOrderById(orderId) };
+      }
 
-      const order = (orderId && (await store.getOrderById(orderId))) || (await store.getOrderBySession(sessionId));
-      if (!order) return { duplicate: false, missing: true, enqueued: false };
+      const session = typeof sessionId === 'string' && sessionId.startsWith('cs_') ? sessionId : '';
+      const intent = typeof paymentIntentId === 'string' && paymentIntentId.startsWith('pi_') ? paymentIntentId : '';
 
-      if (order.stripe_session_id && sessionId && order.stripe_session_id !== sessionId) {
-        return { duplicate: false, mismatch: 'session', enqueued: false, order };
+      if (!desiredPayment) {
+        await store.insertStripeEvent(eventId, eventType, livemode, {
+          outcome: 'ignored',
+          objectId,
+          sessionId: session,
+          paymentIntentId: intent,
+        });
+        if (existingEvent) existingEvent.outcome = 'ignored';
+        return { duplicate: Boolean(existingEvent), ignored: true, enqueued: false, outcome: 'ignored' };
+      }
+
+      const order =
+        (orderId && (await store.getOrderById(orderId))) ||
+        (session && (await store.getOrderBySession(session))) ||
+        (intent && orders.find((row) => row.stripe_payment_intent_id === intent)) ||
+        null;
+      if (!order) {
+        await store.insertStripeEvent(eventId, eventType, livemode, {
+          outcome: 'ignored',
+          objectId,
+          sessionId: session,
+          paymentIntentId: intent,
+        });
+        if (existingEvent) existingEvent.outcome = 'ignored';
+        return { duplicate: false, missing: true, enqueued: false, outcome: 'ignored' };
+      }
+
+      if (order.stripe_session_id && session && order.stripe_session_id !== session) {
+        await store.insertStripeEvent(eventId, eventType, livemode, {
+          outcome: 'rejected',
+          mismatch: 'session',
+          objectId,
+          sessionId: session,
+          paymentIntentId: intent,
+        });
+        if (existingEvent) {
+          existingEvent.outcome = 'rejected';
+          existingEvent.mismatch = 'session';
+        }
+        return { duplicate: false, mismatch: 'session', enqueued: false, outcome: 'rejected', order };
       }
       if (desiredPayment === 'paid') {
         if (Number(order.amount_minor) !== Number(amountMinor) || String(order.currency).toLowerCase() !== String(currency).toLowerCase()) {
-          return { duplicate: false, mismatch: 'amount', enqueued: false, order };
+          await store.insertStripeEvent(eventId, eventType, livemode, {
+            outcome: 'rejected',
+            mismatch: 'amount',
+            objectId,
+            sessionId: session,
+            paymentIntentId: intent,
+          });
+          if (existingEvent) {
+            existingEvent.outcome = 'rejected';
+            existingEvent.mismatch = 'amount';
+          }
+          return { duplicate: false, mismatch: 'amount', enqueued: false, outcome: 'rejected', order };
         }
       }
 
       const alreadyPaid = order.payment_status === 'paid';
       let nextPayment = order.payment_status;
       if (!alreadyPaid) {
-        if (desiredPayment === 'paid') nextPayment = 'paid';
-        else nextPayment = desiredPayment;
+        nextPayment = desiredPayment === 'paid' ? 'paid' : desiredPayment;
       }
 
-      const updated = await store.updateOrder(order.id, {
+      const patch = {
         payment_status: nextPayment,
-        stripe_payment_intent_id: paymentIntentId || order.stripe_payment_intent_id,
-        stripe_session_id: sessionId || order.stripe_session_id,
+        stripe_payment_intent_id: intent || order.stripe_payment_intent_id,
         stripe_livemode: livemode,
-      });
+      };
+      if (session) patch.stripe_session_id = session;
+
+      const updated = await store.updateOrder(order.id, patch);
 
       const shouldEnqueue = !alreadyPaid && nextPayment === 'paid';
       if (shouldEnqueue) {
@@ -133,7 +208,15 @@ export function createMemoryStore(clock = () => new Date()) {
         });
       }
 
-      return { duplicate: false, enqueued: shouldEnqueue, order: updated };
+      await store.insertStripeEvent(eventId, eventType, livemode, {
+        outcome: 'accepted',
+        objectId,
+        sessionId: session,
+        paymentIntentId: intent,
+      });
+      if (existingEvent) existingEvent.outcome = 'accepted';
+
+      return { duplicate: false, enqueued: shouldEnqueue, outcome: 'accepted', order: updated };
     },
 
     async enqueueJob({ orderId, task, dedupeKey, payload = {}, nextRetryAt }) {
@@ -165,6 +248,7 @@ export function createMemoryStore(clock = () => new Date()) {
       const due = jobs
         .filter((job) => {
           if (job.status !== 'pending' && job.status !== 'leased') return false;
+          if (job.attempts >= (job.max_attempts || 12)) return false;
           if (job.status === 'leased' && job.lease_until && new Date(job.lease_until) > now) return false;
           return new Date(job.next_retry_at) <= now;
         })
@@ -212,6 +296,70 @@ export function createMemoryStore(clock = () => new Date()) {
       return job;
     },
 
+    async updateJobPayload(id, payload) {
+      const job = jobs.find((row) => row.id === id);
+      if (!job) return null;
+      job.payload = { ...(job.payload || {}), ...payload };
+      job.updated_at = nowIso(clock());
+      return job;
+    },
+
+    async recordExternalAttempt(row) {
+      const attempts = store.externalAttempts || (store.externalAttempts = []);
+      attempts.push({ ...row, id: crypto.randomUUID(), created_at: nowIso(clock()) });
+      return attempts[attempts.length - 1];
+    },
+
+    async purgeRateLimits() {
+      rateLimits.clear();
+      return { purged: true };
+    },
+
+    async operationalSnapshot() {
+      return {
+        jobsPending: jobs.filter((job) => job.status === 'pending').length,
+        jobsFailed: jobs.filter((job) => job.status === 'failed').length,
+        jobsLeased: jobs.filter((job) => job.status === 'leased').length,
+        unknownSubmissions: orders.filter((row) => row.fulfillment_status === 'submission_unknown').length,
+        deferredFulfillment: orders.filter((row) => row.fulfillment_status === 'deferred').length,
+        paidUnfulfilled: orders.filter(
+          (row) => row.payment_status === 'paid' && !['completed', 'skipped_test_mode'].includes(row.fulfillment_status)
+        ).length,
+      };
+    },
+
+    async getJobByExternalRef(ref) {
+      return jobs.find((job) => job.external_ref === ref) || null;
+    },
+
+    async getJobById(id) {
+      return jobs.find((job) => job.id === id) || null;
+    },
+
+    async replayJob(id) {
+      const job = jobs.find((row) => row.id === id);
+      if (!job) return null;
+      job.status = 'pending';
+      job.next_retry_at = nowIso(clock());
+      job.attempts = Math.max(0, (job.attempts || 1) - 1);
+      job.lease_until = null;
+      job.updated_at = nowIso(clock());
+      return job;
+    },
+
+    async recordJobAttempt(row) {
+      const attempts = store.jobAttempts || (store.jobAttempts = []);
+      attempts.push({ ...row, id: crypto.randomUUID(), created_at: nowIso(clock()) });
+      return attempts[attempts.length - 1];
+    },
+
+    async insertOperatorAction(row) {
+      const actions = store.operatorActions || (store.operatorActions = []);
+      const item = { id: crypto.randomUUID(), created_at: nowIso(clock()), ...row };
+      actions.push(item);
+      return item;
+    },
+
     async consumeRateLimit(bucket, key, limit, windowSec) {
       const windowStart = Math.floor(clock().getTime() / (windowSec * 1000));
       const id = `${bucket}:${key}:${windowStart}`;
@@ -224,6 +372,7 @@ export function createMemoryStore(clock = () => new Date()) {
     async cacheGet(key) {
       const entry = cache.get(key);
       if (!entry) return null;
+      if (entry.expires && entry.expires < clock().getTime()) return null;
       return entry.value;
     },
 
@@ -236,7 +385,7 @@ export function createMemoryStore(clock = () => new Date()) {
         (row) =>
           row.payment_status === 'paid' &&
           row.provider_order_id &&
-          !['completed', 'failed', 'cancelled'].includes(row.fulfillment_status)
+          ['submitted', 'in_progress', 'dispatching'].includes(row.fulfillment_status)
       );
     },
 

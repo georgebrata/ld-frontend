@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://like-dealer.com/contracts/catalogue.json",
+  "title": "Public catalogue response",
+  "type": "object",
+  "required": ["ok", "data"],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "platform", "service", "purchasable"],
+        "properties": {
+          "id": { "type": "string" },
+          "platform": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,47}$" },
+          "service": { "type": "string" },
+          "purchasable": { "type": "boolean" },
+          "retailRateMinor": { "type": ["integer", "null"] },
+          "rateUnit": { "type": "string" }
+        }
+      }
+    }
+  }
+}

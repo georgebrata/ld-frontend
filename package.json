@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "node scripts/build.mjs && python3 -m http.server 3000",
+    "build:check": "BUILD_OFFLINE=1 BUILD_CHECK=1 node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && node scripts/serve-dist.mjs",
     "test": "node --test js/utils/*.test.js js/checkout/*.test.js test/*.test.js",
-    "supabase:functions": "npx --yes supabase functions serve --no-verify-jwt"
+    "supabase:functions": "npx --yes supabase@2.58.5 functions serve --no-verify-jwt"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4"

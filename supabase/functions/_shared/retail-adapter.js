@@ -95,6 +95,9 @@ export function normalizeRetailRow(row, defaults = {}) {
         ? null
         : Math.round(Number(row.packagePriceMinor)),
     dripEnabled: isVisible(row.dripEnabled ?? row.drip),
+    minContributionMinor: Number.isInteger(Number(row.minContributionMinor ?? row.min_contribution_minor))
+      ? Number(row.minContributionMinor ?? row.min_contribution_minor)
+      : undefined,
   };
 }
 
@@ -140,6 +143,7 @@ export function productRowToRetail(row, defaults = {}) {
       quantityDefault: row.quantity_default ?? row.quantityDefault,
       packagePriceMinor: row.package_price_minor ?? row.packagePriceMinor,
       dripEnabled: row.drip_enabled ?? row.dripEnabled,
+      minContributionMinor: row.min_contribution_minor ?? row.minContributionMinor,
     },
     defaults
   );

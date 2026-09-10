@@ -1,12 +1,15 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { cp, mkdir, readFile, readdir, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RETAIL_CATALOGUE } from '../supabase/functions/_shared/retail-catalogue.js';
 import { parseInputList } from '../supabase/functions/_shared/inputs.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DIST = path.join(ROOT, 'dist');
 const SITE_URL = 'https://like-dealer.com';
-const TAGLINE = 'Boost your socials';
+const SLUG_PATTERN = /^[a-z][a-z0-9-]{0,47}$/;
+const RAW_FILL = new Set(['RESOURCE_HINTS', 'MENU', 'HERO_SVG', 'CATALOGUE', 'CONTENT', 'SERVICES_JSON', 'JSON_LD', 'BODY_ATTRS']);
 const KNOWN_ICONS = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 const THEME_COLORS = {
   home: '#52555b',
@@ -45,10 +48,15 @@ function isVisible(value) {
  * @returns {string}
  */
 function toPlatformSlug(platform) {
-  return String(platform ?? '')
+  const slug = String(platform ?? '')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '');
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!SLUG_PATTERN.test(slug)) {
+    throw new Error(`Invalid platform slug: ${platform}`);
+  }
+  return slug;
 }
 
 /**
@@ -61,6 +69,9 @@ function toServiceSlug(name) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+  if (!SLUG_PATTERN.test(slug || 'service')) {
+    throw new Error(`Invalid service slug: ${name}`);
+  }
   return slug || 'service';
 }
 
@@ -195,7 +206,7 @@ function renderServiceDetail(service) {
       <div class="service-detail__logo">${icon}</div>
       ${desc}
       <p class="service-detail__price">${escapeHtml(formatCardPrice(service))}</p>
-      <button type="button" class="btn" data-checkout-trigger>Order ${escapeHtml(service.label)}</button>
+      <p>JavaScript is required for secure Stripe checkout. <a href="mailto:support@like-dealer.com">Contact support</a> if you cannot enable it.</p>
     </article>`;
 }
 
@@ -206,7 +217,8 @@ function renderMenu(platforms) {
   const items = [
     ['/', 'Home'],
     ['/why/', 'Why'],
-    ...platforms.map((p) => [`/?platform=${p.platform}`, p.platformLabel]),
+    ...platforms.map((p) => [`/${p.platform}/`, p.platformLabel === 'Youtube' ? 'YouTube' : p.platformLabel]),
+    ['/legal/terms/', 'Terms'],
   ];
   return items
     .map(([href, label]) => `<li><a href="${href}" class="menu">${escapeHtml(label)}</a></li>`)
@@ -220,32 +232,10 @@ function renderMenu(platforms) {
 function resourceHints(type, opts) {
   /** @type {string[]} */
   const links = [];
-
-  if (type === 'home') {
-    for (const platform of opts.platforms ?? []) {
-      links.push(`<link rel="prefetch" href="/${platform.platform}/" />`);
-      if (KNOWN_ICONS.has(platform.platform)) {
-        links.push(`<link rel="prefetch" href="/assets/icons/${platform.platform}.svg" as="image" />`);
-      }
-    }
+  const platform = opts.platform || opts.platforms?.[0]?.platform;
+  if (platform && KNOWN_ICONS.has(platform)) {
+    links.push(`<link rel="prefetch" href="/assets/icons/${platform}.svg" as="image" />`);
   }
-
-  if (type === 'platform' && opts.platform) {
-    if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/icons/${opts.platform}.svg" as="image" />`);
-    }
-    for (const service of (opts.services ?? []).filter((s) => s.platform === opts.platform)) {
-      links.push(`<link rel="prefetch" href="${escapeHtml(service.url)}" />`);
-    }
-  }
-
-  if (type === 'service' && opts.platform) {
-    links.push(`<link rel="prefetch" href="/${opts.platform}/" />`);
-    if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/icons/${opts.platform}.svg" as="image" />`);
-    }
-  }
-
   return links.join('\n  ');
 }
 
@@ -254,25 +244,52 @@ function resourceHints(type, opts) {
  * @param {Record<string, string>} values
  */
 function fill(template, values) {
-  return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? values[key] : ''
-  );
+  return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return '';
+    const value = values[key] == null ? '' : String(values[key]);
+    return RAW_FILL.has(key) ? value : escapeHtml(value);
+  });
+}
+
+function assertInside(root, target) {
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(target);
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+    throw new Error(`Refusing to write outside ${resolvedRoot}: ${resolved}`);
+  }
+}
+
+async function assetVersion() {
+  const hash = createHash('sha256');
+  const files = ['js/app.js', 'js/ui/scene.js', 'js/order/one-page.js', 'js/checkout/checkout-form.js', 'css/base.css'];
+  for (const file of files) {
+    hash.update(await readFile(path.join(ROOT, file)));
+  }
+  return hash.digest('hex').slice(0, 10);
 }
 
 async function fetchServices() {
   const sheetUrl = process.env.RETAIL_CATALOGUE_URL;
-  if (sheetUrl) {
+  const strict = process.env.BUILD_STRICT === '1' || process.env.CI === 'true';
+  if (sheetUrl && process.env.BUILD_OFFLINE !== '1') {
     try {
-      const response = await fetch(sheetUrl);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(sheetUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      const length = Number(response.headers.get('content-length') || 0);
+      if (length > 1_000_000) throw new Error('Remote catalogue is too large');
       if (response.ok) {
         const json = await response.json();
         const { adaptSheetCatalogue } = await import('../supabase/functions/_shared/retail-adapter.js');
         const adapted = adaptSheetCatalogue(json);
         if (adapted.length) {
-          return assignServiceSlugs(adapted.filter((s) => s.visible && s.platform));
+          return assignServiceSlugs(adapted.filter((s) => s.visible && s.platform && s.socialpanelId));
         }
       }
+      if (strict) throw new Error(`Retail catalogue URL failed: HTTP ${response.status}`);
     } catch (err) {
+      if (strict) throw err;
       console.warn('Retail catalogue URL failed, using bundled catalogue', err instanceof Error ? err.message : err);
     }
   }
@@ -280,7 +297,8 @@ async function fetchServices() {
   return assignServiceSlugs(
     RETAIL_CATALOGUE.filter((s) => s.visible && s.platform).map((row) => ({
       ...row,
-      label: `${row.platformLabel} ${row.service}`.trim(),
+      platformLabel: row.platformLabel === 'Youtube' ? 'YouTube' : row.platformLabel,
+      label: `${row.platformLabel === 'Youtube' ? 'YouTube' : row.platformLabel} ${row.service}`.trim(),
       price: null,
       url: `/${row.platform}/${row.service.toLowerCase()}/`,
     }))
@@ -305,13 +323,12 @@ function uniquePlatforms(services) {
 }
 
 function snapshotJson(services) {
-  const phrases = [TAGLINE, ...services.map((s) => s.label).filter(Boolean)];
   const publicServices = services.map(({ socialpanelId, ...service }) => ({
     ...service,
-    purchasable: false,
-    enabled: Boolean(service.visible),
+    purchasable: Boolean(socialpanelId),
+    enabled: Boolean(service.visible) && Boolean(socialpanelId),
   }));
-  return JSON.stringify({ services: publicServices, phrases }).replace(/</g, '\\u003c');
+  return JSON.stringify({ services: publicServices }).replace(/</g, '\\u003c');
 }
 
 const TRUST_COPY = `<h2>Don't post into a quiet room.</h2>
@@ -361,11 +378,13 @@ function writeSitemap(platforms, services) {
       changefreq: 'weekly',
       priority: '0.9',
     })),
-    ...services.map((s) => ({
-      loc: `${SITE_URL}${s.url}`,
-      changefreq: 'weekly',
-      priority: '0.7',
-    })),
+    ...services
+      .filter((s) => s.socialpanelId)
+      .map((s) => ({
+        loc: `${SITE_URL}${s.url}`,
+        changefreq: 'weekly',
+        priority: '0.7',
+      })),
   ];
 
   const body = urls
@@ -404,10 +423,46 @@ async function removeStaleServiceDirs(dir, keep) {
   );
 }
 
+async function copyStatic(version) {
+  const dirs = ['css', 'js', 'assets', 'favicon', 'why', 'success', 'cancel', 'legal'];
+  for (const dir of dirs) {
+    const from = path.join(ROOT, dir);
+    try {
+      await stat(from);
+    } catch {
+      continue;
+    }
+    await cp(from, path.join(DIST, dir), { recursive: true });
+  }
+  for (const file of ['404.html', 'confirmation.html', 'robots.txt', '_headers']) {
+    const from = path.join(ROOT, file);
+    try {
+      await stat(from);
+      await cp(from, path.join(DIST, file));
+    } catch {
+      /* optional */
+    }
+  }
+  const bust = `v=${version}`;
+  for (const rel of ['success/index.html', 'cancel/index.html']) {
+    const target = path.join(DIST, rel);
+    try {
+      const html = await readFile(target, 'utf8');
+      await writeFile(target, html.replace(/app\.js\?v=[^"']+/g, `app.js?${bust}`));
+    } catch {
+      /* optional */
+    }
+  }
+}
+
 async function main() {
-  const [shell, heroSvg] = await Promise.all([
+  await rm(DIST, { recursive: true, force: true });
+  await mkdir(DIST, { recursive: true });
+
+  const [shell, heroSvg, version] = await Promise.all([
     readFile(path.join(ROOT, 'templates/shell.html'), 'utf8'),
     readFile(path.join(ROOT, 'templates/hero.svg'), 'utf8'),
+    assetVersion(),
   ]);
 
   const services = await fetchServices();
@@ -415,13 +470,22 @@ async function main() {
   const menu = renderMenu(platforms);
   const json = snapshotJson(services);
 
-  await mkdir(path.join(ROOT, 'data'), { recursive: true });
+  await mkdir(path.join(DIST, 'data'), { recursive: true });
   await writeFile(
-    path.join(ROOT, 'data/services.json'),
+    path.join(DIST, 'data/services.json'),
     `${JSON.stringify({ services: services.map(({ socialpanelId, ...service }) => service) }, null, 2)}\n`
   );
 
+  const shared = {
+    MENU: menu,
+    HERO_SVG: heroSvg.trim(),
+    CONTENT: TRUST_COPY,
+    SERVICES_JSON: json,
+    ASSET_VERSION: version,
+  };
+
   const homeHtml = fill(shell, {
+    ...shared,
     TITLE: 'Like Dealer — Boost Your Socials',
     CANONICAL: `${SITE_URL}/`,
     DESCRIPTION:
@@ -431,24 +495,20 @@ async function main() {
     RESOURCE_HINTS: resourceHints('home', { platforms }),
     BODY_CLASS: 'page-home',
     BODY_ATTRS: 'data-page="home"',
-    MENU: menu,
-    HERO_SVG: heroSvg.trim(),
     PAGE_TITLE: 'Boost your socials',
     CATALOGUE: `<noscript>${renderHomeCards(platforms)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
-    CONTENT: TRUST_COPY,
-    SERVICES_JSON: json,
     JSON_LD: '',
   });
-  await writeFile(path.join(ROOT, 'index.html'), homeHtml);
-
-  const generatedPlatforms = new Set(platforms.map((p) => p.platform));
+  await writeFile(path.join(DIST, 'index.html'), homeHtml);
 
   for (const platform of platforms) {
     const filtered = services.filter((s) => s.platform === platform.platform);
-    const platformDir = path.join(ROOT, platform.platform);
+    const platformDir = path.join(DIST, platform.platform);
+    assertInside(DIST, platformDir);
     await mkdir(platformDir, { recursive: true });
 
     const platformHtml = fill(shell, {
+      ...shared,
       TITLE: `${platform.platformLabel} Services | Like Dealer`,
       CANONICAL: `${SITE_URL}/${platform.platform}/`,
       DESCRIPTION: `Buy ${platform.platformLabel} likes, followers, and engagement. Premium services from Like Dealer.`,
@@ -457,56 +517,47 @@ async function main() {
       RESOURCE_HINTS: resourceHints('platform', { platform: platform.platform, services: filtered }),
       BODY_CLASS: `platform-${platform.platform}`,
       BODY_ATTRS: `data-page="platform" data-platform="${escapeHtml(platform.platform)}"`,
-      MENU: menu,
-      HERO_SVG: heroSvg.trim(),
       PAGE_TITLE: `${platform.platformLabel} services`,
       CATALOGUE: `<noscript>${renderServiceCards(filtered)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
-      CONTENT: TRUST_COPY,
-      SERVICES_JSON: json,
       JSON_LD: '',
     });
     await writeFile(path.join(platformDir, 'index.html'), platformHtml);
 
-    const slugs = new Set(filtered.map((s) => s.slug));
-    await removeStaleServiceDirs(platformDir, slugs);
-
     for (const service of filtered) {
       const serviceDir = path.join(platformDir, service.slug);
+      assertInside(platformDir, serviceDir);
       await mkdir(serviceDir, { recursive: true });
       const serviceHtml = fill(shell, {
+        ...shared,
         TITLE: `${service.label} | Like Dealer`,
         CANONICAL: `${SITE_URL}${service.url}`,
         DESCRIPTION:
-          service.description ||
-          `Order ${service.label} from Like Dealer. Premium social media engagement.`,
+          service.description || `Order ${service.label} from Like Dealer. Premium social media engagement.`,
         OG_TITLE: `${service.label} | Like Dealer`,
         THEME_COLOR: THEME_COLORS[service.platform] ?? THEME_COLORS.home,
         RESOURCE_HINTS: resourceHints('service', { platform: service.platform }),
         BODY_CLASS: `platform-${service.platform} page-service`,
         BODY_ATTRS: `data-page="service" data-platform="${escapeHtml(service.platform)}" data-service-id="${escapeHtml(service.id)}"`,
-        MENU: menu,
-        HERO_SVG: heroSvg.trim(),
         PAGE_TITLE: service.label,
         CATALOGUE: `<noscript>${renderServiceDetail(service)}</noscript><div class="catalogue-state"><p>Loading checkout…</p></div>`,
-        CONTENT: TRUST_COPY,
-        SERVICES_JSON: json,
         JSON_LD: productJsonLd(service),
       });
       await writeFile(path.join(serviceDir, 'index.html'), serviceHtml);
     }
   }
 
-  for (const folder of STATIC_PLATFORM_FOLDERS) {
-    if (!generatedPlatforms.has(folder)) {
-      await rm(path.join(ROOT, folder), { recursive: true, force: true });
-    }
+  await writeFile(path.join(DIST, 'sitemap.xml'), writeSitemap(platforms, services));
+  await copyStatic(version);
+
+  if (process.env.BUILD_CHECK === '1') {
+    const home = await readFile(path.join(DIST, 'index.html'), 'utf8');
+    if (!home.includes('data-page="home"')) throw new Error('build check failed: home page');
+    if (home.includes('cdn.jsdelivr.net')) throw new Error('build check failed: jsDelivr in dist');
+    const headers = await readFile(path.join(DIST, '_headers'), 'utf8');
+    if (!headers.includes('X-Content-Type-Options')) throw new Error('build check failed: _headers');
   }
 
-  await writeFile(path.join(ROOT, 'sitemap.xml'), writeSitemap(platforms, services));
-
-  console.log(
-    `Built home, ${platforms.length} platform page(s), and ${services.length} service page(s).`
-  );
+  console.log(`Built dist/ with ${platforms.length} platform page(s) and ${services.length} service page(s).`);
 }
 
 main().catch((err) => {

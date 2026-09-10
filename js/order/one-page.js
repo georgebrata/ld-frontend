@@ -1,7 +1,7 @@
-import { servicesApi } from '../api/services-api.js?v=20260909a';
-import { formatCardPrice } from '../components/card-frame.js';
+import { servicesApi } from '../api/services-api.js';
+import { formatMoney } from '../utils/money.js';
 import { renderEmpty, renderError, renderLoading } from '../components/catalogue-states.js';
-import { mountCheckoutForm } from '../checkout/checkout-form.js?v=20260909d';
+import { mountCheckoutForm } from '../checkout/checkout-form.js';
 import { createEl, clearChildren } from '../utils/dom.js';
 import { prefersReducedMotion, scrollToSection } from '../utils/motion.js';
 import { getPlatformIconUrl, getPlatformInitials } from '../utils/platform-icons.js';
@@ -27,7 +27,10 @@ function serviceCardMeta(service) {
   if (!service.purchasable) return 'Unavailable';
   if (service.rateUnit === 'per_comment') return 'Priced per comment';
   if (service.rateUnit === 'package') return 'Package price at checkout';
-  if (service.price != null) return formatCardPrice(service.price);
+  if (Number.isInteger(service.retailRateMinor) && service.rateUnit === 'per_1000') {
+    return `From ${formatMoney(service.retailRateMinor, service.currency)} per 1,000`;
+  }
+  if (service.price != null) return `$${service.price} per 1k`;
   return 'Price at checkout';
 }
 
@@ -83,6 +86,7 @@ function bindRadioKeys(grid, onSelect) {
       return;
     }
     event.preventDefault();
+    onSelect(next);
     items[next]?.focus();
   });
 }
@@ -91,14 +95,11 @@ function bindRadioKeys(grid, onSelect) {
  * @param {string} platform
  * @param {string} [serviceSlug]
  */
-function syncHomeUrl(platform, serviceSlug) {
-  if (document.body.dataset.page !== 'home') return;
-  const url = new URL(window.location.href);
-  if (platform) url.searchParams.set('platform', platform);
-  else url.searchParams.delete('platform');
-  if (serviceSlug) url.searchParams.set('service', serviceSlug);
-  else url.searchParams.delete('service');
-  history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+function syncOrderUrl(platform, serviceSlug) {
+  const next = platform && serviceSlug ? `/${platform}/${serviceSlug}/` : platform ? `/${platform}/` : '/';
+  if (`${window.location.pathname}` !== next) {
+    history.replaceState({}, '', next);
+  }
 }
 
 /**
@@ -225,7 +226,12 @@ export async function initOnePageOrder(preset = {}) {
         index,
         attrs: { 'data-service-id': service.id },
       });
-      card.addEventListener('click', () => selectService(service));
+      if (!service.purchasable) {
+        card.disabled = true;
+        card.setAttribute('aria-disabled', 'true');
+      } else {
+        card.addEventListener('click', () => selectService(service));
+      }
       servicesGrid.appendChild(card);
     });
   }
@@ -240,7 +246,7 @@ export async function initOnePageOrder(preset = {}) {
       selectedServiceId = '';
       selectedSlug = '';
     }
-    syncHomeUrl(selectedPlatform, selectedSlug);
+    syncOrderUrl(selectedPlatform, selectedSlug);
 
     platformsGrid.querySelectorAll('[role="radio"]').forEach((el) => {
       const isCurrent = el.getAttribute('data-platform') === platform.platform;
@@ -265,7 +271,7 @@ export async function initOnePageOrder(preset = {}) {
   async function selectService(service, opts = {}) {
     selectedServiceId = service.id;
     selectedSlug = service.slug ?? '';
-    syncHomeUrl(service.platform, selectedSlug);
+    syncOrderUrl(service.platform, selectedSlug);
 
     servicesGrid.querySelectorAll('[role="radio"]').forEach((el) => {
       const isCurrent = el.getAttribute('data-service-id') === service.id;
@@ -300,8 +306,9 @@ export async function initOnePageOrder(preset = {}) {
     if (platform) selectPlatform(platform);
   });
   bindRadioKeys(servicesGrid, (index) => {
-    const filtered = services.filter((s) => s.platform === selectedPlatform);
-    const service = filtered[index];
+    const items = Array.from(servicesGrid.querySelectorAll('[role="radio"]'));
+    const id = items[index]?.getAttribute('data-service-id');
+    const service = services.find((s) => s.id === id && s.purchasable);
     if (service) selectService(service);
   });
 

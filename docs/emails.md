@@ -12,9 +12,9 @@ Owner copy may include internal ids for operations.
 
 Payment-confirmation emails are separate jobs (`email_customer_payment`, `email_owner_payment`). Failures never change payment status or block fulfilment. Alerts (`email_owner_alert`) are a third task.
 
-Jobs store rendered html/text/version, idempotency key (`dedupe_key`), send state, and Resend id (`external_ref`).
+Jobs store subject, template version, idempotency key (`dedupe_key`), attempted timestamp on the **job payload**, send state, and Resend id (`external_ref`). Full HTML is not kept on retry payloads.
 
-Resend idempotency lasts 24 hours. If a send is ambiguous (accepted HTTP unknown), wait out that window or reconcile in the Resend dashboard before sending again. “Accepted for sending” is not delivery.
+Resend idempotency lasts 24 hours. If a send is ambiguous (accepted HTTP unknown), wait out that window or reconcile in the Resend dashboard before sending again. Customer UI uses **accepted** until a signed delivery webhook (`resend-webhook`) sets `delivered` or `bounced`. “Accepted for sending” is not delivery.
 
 ## Customize
 

@@ -40,7 +40,7 @@ function paidOrder(store, overrides = {}) {
     params_fingerprint: 'fp',
     payment_status: 'paid',
     fulfillment_status: 'not_started',
-    stripe_livemode: false,
+    stripe_livemode: true,
     ...overrides,
   });
 }
@@ -49,7 +49,8 @@ function env() {
   return {
     SOCIALPANEL24_API_KEY: 'test-key',
     SOCIALPANEL24_ENABLED: 'true',
-    PROVIDER_ENV: 'test',
+    PROVIDER_ENV: 'live',
+    APP_ENV: 'production',
     RESEND_API_KEY: 're_test',
     FROM_EMAIL: 'orders@like-dealer.com',
     OWNER_EMAIL: 'owner@like-dealer.com',
@@ -139,7 +140,7 @@ test('insufficient balance blocks automatic retries', async () => {
   assert.equal(saved.amount_minor, 180);
 });
 
-test('test-mode Stripe does not call a live provider', async () => {
+test('test-mode Stripe never calls the live provider', async () => {
   const store = createMemoryStore();
   const order = await paidOrder(store, { stripe_livemode: false });
   const job = await store.enqueueJob({ orderId: order.id, task: 'fulfill', dedupeKey: `fulfill:${order.id}` });
@@ -152,6 +153,40 @@ test('test-mode Stripe does not call a live provider', async () => {
   assert.equal(adds, 0);
   const saved = await store.getOrderById(order.id);
   assert.equal(saved.fulfillment_status, 'skipped_test_mode');
+});
+
+test('default test provider env cannot spend against the live endpoint', async () => {
+  const store = createMemoryStore();
+  const order = await paidOrder(store, { stripe_livemode: false });
+  const job = await store.enqueueJob({ orderId: order.id, task: 'fulfill', dedupeKey: `fulfill:${order.id}` });
+  let adds = 0;
+  globalThis.fetch = async () => {
+    adds += 1;
+    return { ok: true, text: async () => JSON.stringify(fixtures.addDefault) };
+  };
+  await fulfillPaidOrder(
+    { SOCIALPANEL24_API_KEY: 'test-key', SOCIALPANEL24_ENABLED: 'true', PROVIDER_ENV: 'test' },
+    store,
+    order,
+    job
+  );
+  assert.equal(adds, 0);
+});
+
+test('disabling the provider defers paid live work instead of skipping it', async () => {
+  const store = createMemoryStore();
+  const order = await paidOrder(store, { stripe_livemode: true });
+  const job = await store.enqueueJob({ orderId: order.id, task: 'fulfill', dedupeKey: `fulfill:${order.id}` });
+  let adds = 0;
+  globalThis.fetch = async () => {
+    adds += 1;
+    return { ok: true, text: async () => JSON.stringify(fixtures.addDefault) };
+  };
+  await fulfillPaidOrder({ ...env(), SOCIALPANEL24_ENABLED: 'false' }, store, order, job);
+  assert.equal(adds, 0);
+  const saved = await store.getOrderById(order.id);
+  assert.equal(saved.fulfillment_status, 'deferred');
+  assert.equal(store.jobs.find((j) => j.task === 'fulfill').status, 'pending');
 });
 
 test('status polling maps Partial and unknown independently per id', async () => {

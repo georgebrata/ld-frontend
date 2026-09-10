@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.refresh-catalogue]
 verify_jwt = false
+
+[functions.health]
+verify_jwt = false
+
+[functions.operator]
+verify_jwt = false
+
+[functions.resend-webhook]
+verify_jwt = false

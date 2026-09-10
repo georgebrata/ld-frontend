@@ -6,12 +6,37 @@
 import { formatMoney } from './money.js';
 import { customerPaymentEmail, ownerAlertEmail, ownerPaymentEmail } from './email-templates.js';
 import { resendIdempotencyExpired, sendResendEmail } from './email.js';
-import { fulfillPaidOrder, pollProviderOrders } from './fulfillment.js';
+import { fulfillPaidOrder, isPollingTerminal, pollProviderOrders } from './fulfillment.js';
 import { logError } from './log.js';
 
 function backoffMs(attempts) {
-  const capped = Math.min(Math.max(attempts, 1), 8);
-  return Math.min(60 * 60 * 1000, 1000 * 2 ** capped);
+  const exp = Math.min(Math.max(Number(attempts) || 1, 1), 12);
+  const base = Math.min(60 * 60 * 1000, 1000 * 2 ** exp);
+  const jitter = Math.floor(Math.random() * Math.min(1000, base / 4));
+  return base + jitter;
+}
+
+function maxAttempts(job) {
+  return Number(job.max_attempts) > 0 ? Number(job.max_attempts) : 12;
+}
+
+function exhausted(job) {
+  return Number(job.attempts || 0) >= maxAttempts(job);
+}
+
+async function noteAttempt(store, job) {
+  if (typeof store.recordJobAttempt !== 'function') return;
+  try {
+    await store.recordJobAttempt({
+      jobId: job.id,
+      orderId: job.order_id,
+      task: job.task,
+      attempt: job.attempts,
+      outcome: 'claimed',
+    });
+  } catch {
+    /* job_attempts may be missing on older databases */
+  }
 }
 
 /**
@@ -32,16 +57,19 @@ export async function processJob(env, store, job, deps = {}) {
     return;
   }
 
-  if (job.task === 'poll_status') {
-    await pollProviderOrders(env, store, deps);
-    const latest = order ? await store.getOrderById(order.id) : null;
-    const terminal = latest && ['completed', 'failed', 'cancelled'].includes(latest.fulfillment_status);
-    if (terminal) {
-      await store.completeJob(job.id, { status: latest.fulfillment_status });
-      return;
+  if (job.task === 'poll_status' || job.task === 'poll_provider_status') {
+    if (job.task === 'poll_provider_status') {
+      await pollProviderOrders(env, store, deps);
     }
-    const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
-    await store.failJob(job.id, { reason: 'requeue_poll' }, next, false);
+    await settlePollJob(env, store, job, order, deps);
+    return;
+  }
+
+  if (job.task === 'purge_rate_limits') {
+    if (typeof store.purgeRateLimits === 'function') {
+      await store.purgeRateLimits();
+    }
+    await store.completeJob(job.id, { purged: true });
     return;
   }
 
@@ -57,6 +85,33 @@ export async function processJob(env, store, job, deps = {}) {
   await store.skipJob(job.id, { reason: 'unknown_task' });
 }
 
+async function settlePollJob(env, store, job, order, deps) {
+  if (job.task === 'poll_status' && order) {
+    const latest = await store.getOrderById(order.id);
+    if (latest && isPollingTerminal(latest.fulfillment_status)) {
+      await store.completeJob(job.id, { status: latest.fulfillment_status, coalesced: true });
+      return;
+    }
+    await store.enqueueJob({
+      orderId: null,
+      task: 'poll_provider_status',
+      dedupeKey: 'poll:batch',
+    });
+    await store.completeJob(job.id, { coalesced: true });
+    return;
+  }
+
+  const remaining = (await store.listPollingOrders()).filter(
+    (row) => row.provider_order_id && !isPollingTerminal(row.fulfillment_status)
+  );
+  if (!remaining.length) {
+    await store.completeJob(job.id, { polled: 0, drained: true });
+    return;
+  }
+  const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
+  await store.failJob(job.id, { reason: 'requeue_poll', remaining: remaining.length }, next, exhausted(job));
+}
+
 /**
  * @param {object} env
  * @param {object} store
@@ -65,15 +120,23 @@ export async function processJob(env, store, job, deps = {}) {
  * @param {object} deps
  */
 async function sendJobEmail(env, store, job, order, deps) {
-  if (job.external_ref && job.payload?.acceptedAt) {
+  const payload = job.payload && typeof job.payload === 'object' ? { ...job.payload } : {};
+
+  if (job.external_ref && (payload.acceptedAt || job.outcome?.acceptedAt)) {
     await store.completeJob(job.id, { already: true }, job.external_ref);
     return;
   }
 
-  if (job.payload?.attemptedAt && !job.external_ref) {
-    const attempted = new Date(job.payload.attemptedAt);
+  const attemptedAt = payload.attemptedAt || job.outcome?.payload?.attemptedAt;
+  if (attemptedAt && !job.external_ref) {
+    const attempted = new Date(attemptedAt);
     if (!resendIdempotencyExpired(attempted, new Date())) {
-      await store.failJob(job.id, { reason: 'ambiguous_resend_window' }, new Date(Date.now() + 10 * 60 * 1000).toISOString());
+      await store.failJob(
+        job.id,
+        { reason: 'ambiguous_resend_window', payload },
+        new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        exhausted(job)
+      );
       return;
     }
   }
@@ -103,7 +166,7 @@ async function sendJobEmail(env, store, job, order, deps) {
     rendered = ownerPaymentEmail(mapped, { amountLabel });
     to = env.OWNER_EMAIL;
   } else {
-    rendered = ownerAlertEmail(mapped, job.payload?.alert || 'Operator attention required.');
+    rendered = ownerAlertEmail(mapped, payload.alert || 'Operator attention required.');
     to = env.OWNER_EMAIL;
   }
 
@@ -113,24 +176,28 @@ async function sendJobEmail(env, store, job, order, deps) {
   }
 
   const idempotencyKey = job.dedupe_key;
-  await store.failJob(
-    job.id,
-    { queued: true },
-    new Date(Date.now() + backoffMs(job.attempts)).toISOString(),
-    false
-  );
-  await store.updateOrder(order.id, {});
-
-  const payload = {
-    ...job.payload,
+  const nextPayload = {
+    ...payload,
     to,
     subject: rendered.subject,
-    html: rendered.html,
-    text: rendered.text,
     templateVersion: rendered.templateVersion,
     idempotencyKey,
     attemptedAt: new Date().toISOString(),
   };
+  if (typeof store.updateJobPayload === 'function') {
+    await store.updateJobPayload(job.id, nextPayload);
+  }
+
+  if (typeof store.recordExternalAttempt === 'function') {
+    await store.recordExternalAttempt({
+      orderId: order.id,
+      jobId: job.id,
+      vendor: 'resend',
+      action: 'send',
+      fingerprint: idempotencyKey,
+      attemptedAt: nextPayload.attemptedAt,
+    });
+  }
 
   try {
     const result = await sendResendEmail(
@@ -138,21 +205,21 @@ async function sendJobEmail(env, store, job, order, deps) {
       { to, subject: rendered.subject, html: rendered.html, text: rendered.text, idempotencyKey },
       deps.fetchImpl
     );
-    await store.completeJob(job.id, { accepted: true, payload }, result.id);
+    await store.completeJob(job.id, { accepted: true, payload: { ...nextPayload, acceptedAt: new Date().toISOString() } }, result.id);
     if (job.task === 'email_customer_payment') {
-      await store.updateOrder(order.id, { customer_email_state: 'sent' });
+      await store.updateOrder(order.id, { customer_email_state: 'accepted' });
     }
   } catch (err) {
     logError('email send failed', { task: job.task });
     if (job.task === 'email_customer_payment') {
       await store.updateOrder(order.id, { customer_email_state: 'failed' });
     }
-    const retryable = Boolean(err && err.retryable);
+    const retryable = err && typeof err === 'object' && /** @type {{ retryable?: boolean }} */ (err).retryable === true;
     await store.failJob(
       job.id,
-      { error: 'send_failed', payload },
+      { error: 'send_failed', payload: nextPayload },
       new Date(Date.now() + backoffMs(job.attempts)).toISOString(),
-      !retryable && job.attempts >= (job.max_attempts || 12)
+      exhausted(job) || !retryable
     );
   }
 }
@@ -165,9 +232,38 @@ async function sendJobEmail(env, store, job, order, deps) {
 export async function processDueJobs(env, store, deps = {}) {
   const workerId = deps.workerId || crypto.randomUUID();
   const claimed = await store.claimJobs(workerId, deps.limit || 20);
+  const pollJobs = claimed.filter((job) => job.task === 'poll_status' || job.task === 'poll_provider_status');
+  const others = claimed.filter((job) => job.task !== 'poll_status' && job.task !== 'poll_provider_status');
   const results = [];
-  for (const job of claimed) {
+
+  if (pollJobs.length) {
     try {
+      await pollProviderOrders(env, store, deps);
+    } catch (err) {
+      logError('poll batch failed', { name: err instanceof Error ? err.name : 'error' });
+    }
+    for (const job of pollJobs) {
+      try {
+        await noteAttempt(store, job);
+        const order = job.order_id ? await store.getOrderById(job.order_id) : null;
+        await settlePollJob(env, store, job, order, deps);
+        results.push({ id: job.id, task: job.task, ok: true });
+      } catch (err) {
+        logError('job failed', { task: job.task });
+        await store.failJob(
+          job.id,
+          { error: 'exception' },
+          new Date(Date.now() + backoffMs(job.attempts)).toISOString(),
+          exhausted(job)
+        );
+        results.push({ id: job.id, task: job.task, ok: false });
+      }
+    }
+  }
+
+  for (const job of others) {
+    try {
+      await noteAttempt(store, job);
       await processJob(env, store, job, deps);
       results.push({ id: job.id, task: job.task, ok: true });
     } catch (err) {
@@ -176,7 +272,7 @@ export async function processDueJobs(env, store, deps = {}) {
         job.id,
         { error: 'exception' },
         new Date(Date.now() + backoffMs(job.attempts)).toISOString(),
-        job.attempts >= (job.max_attempts || 12)
+        exhausted(job)
       );
       results.push({ id: job.id, task: job.task, ok: false });
     }

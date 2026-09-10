@@ -5,9 +5,9 @@
   --color-charcoal: #23262b;
   --color-card-text: #50565b;
   --color-white: #fff;
-  --color-muted: #bdc3c7;
-  --color-error: #e74c3c;
-  --color-success: #27ae60;
+  --color-muted: #5d6d7e;
+  --color-error: #b42318;
+  --color-success: #17663a;
 
   /* Platform gradients */
   --gradient-instagram: linear-gradient(190deg, #feda77 0%, #d62976 50%, #962fbf 100%);

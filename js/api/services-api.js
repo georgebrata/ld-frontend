@@ -22,19 +22,6 @@ function readBootstrap() {
   return null;
 }
 
-export function readBootstrapPhrases() {
-  if (typeof document === 'undefined') return null;
-  const el = document.getElementById('services-data');
-  if (!el) return null;
-  try {
-    const parsed = JSON.parse(el.textContent || '');
-    if (parsed && Array.isArray(parsed.phrases) && parsed.phrases.length) return parsed.phrases;
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 /**
  * Normalize a public catalogue / sheet row.
  * @param {Record<string, unknown>} row
@@ -57,7 +44,7 @@ export function normalizeService(row) {
     inputs: parseInputList(row.inputs ?? row.Inputs ?? ''),
     visible: listed,
     enabled,
-    purchasable: enabled && row.purchasable === true,
+    purchasable: row.purchasable == null ? Boolean(enabled && listed) : row.purchasable === true,
     quantityMin: row.quantityMin == null ? null : Number(row.quantityMin),
     quantityMax: row.quantityMax == null ? null : Number(row.quantityMax),
     quantityStep: row.quantityStep == null ? 1 : Number(row.quantityStep),
@@ -109,27 +96,42 @@ async function fetchLiveCatalogue() {
   return extras.length ? [...live, ...extras] : live;
 }
 
+export function readEmbeddedServices() {
+  const boot = readBootstrap();
+  if (!boot || !boot.length) return [];
+  return assignServiceSlugs(boot.map((service) => toPublicService(normalizeService(service))));
+}
+
 export async function getServices(options = {}) {
   if (cache && !options.force) return cache;
 
-  if (!options.force) {
-    try {
-      if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
-        cache = await fetchLiveCatalogue();
-        return cache;
-      }
-    } catch {
-      /* fall through to bootstrap */
+  const embedded = readEmbeddedServices();
+  if (!options.force && embedded.length && !options.liveOnly) {
+    if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
+      fetchLiveCatalogue()
+        .then((live) => {
+          cache = live;
+        })
+        .catch(() => {});
     }
-    const boot = readBootstrap();
-    if (boot && boot.length) {
-      cache = assignServiceSlugs(boot.map((service) => toPublicService(normalizeService(service))));
-      return cache;
-    }
+    cache = embedded;
+    return cache;
   }
 
   if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
-    cache = await fetchLiveCatalogue();
+    try {
+      cache = await fetchLiveCatalogue();
+      return cache;
+    } catch {
+      if (embedded.length) {
+        cache = embedded;
+        return cache;
+      }
+    }
+  }
+
+  if (embedded.length) {
+    cache = embedded;
     return cache;
   }
 
@@ -177,5 +179,4 @@ export const servicesApi = {
   getServiceById,
   groupByPlatform,
   getUniquePlatforms,
-  readBootstrapPhrases,
 };

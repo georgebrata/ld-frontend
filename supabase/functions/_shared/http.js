@@ -156,3 +156,27 @@ export function readCapabilityToken(request, body = {}) {
     ''
   );
 }
+
+/**
+ * @param {Request} [request]
+ */
+export function correlationId(request) {
+  const header = request?.headers?.get('x-request-id') || request?.headers?.get('x-correlation-id');
+  return header && header.length < 128 ? header : crypto.randomUUID();
+}
+
+/**
+ * @param {typeof fetch} fetchImpl
+ * @param {string} url
+ * @param {RequestInit} [init]
+ * @param {number} [timeoutMs]
+ */
+export async function fetchWithTimeout(fetchImpl, url, init = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}

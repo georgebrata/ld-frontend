@@ -83,14 +83,17 @@ export function parseInputs(raw) {
 /**
  * @param {string} type
  * @param {HTMLElement} container
- * @param {{ min?: number, max?: number, step?: number, value?: number|string }} [options]
+ * @param {{ min?: number, max?: number, step?: number, value?: number|string, platform?: string, overrides?: { label?: string, placeholder?: string, hint?: string } }} [options]
  */
 export function renderInput(type, container, options = {}) {
   const canonical = canonicalInputName(type) || type;
-  const config = INPUT_REGISTRY[canonical] ?? {
-    label: canonical.charAt(0).toUpperCase() + canonical.slice(1),
-    type: 'text',
-    placeholder: '',
+  const config = {
+    ...(INPUT_REGISTRY[canonical] ?? {
+      label: canonical.charAt(0).toUpperCase() + canonical.slice(1),
+      type: 'text',
+      placeholder: '',
+    }),
+    ...(options.overrides || {}),
   };
 
   const field = createEl('div', { className: 'form-field', 'data-input-type': canonical });
@@ -148,7 +151,7 @@ export function renderInput(type, container, options = {}) {
  * @param {HTMLInputElement|HTMLTextAreaElement} input
  * @param {HTMLElement} field
  * @param {HTMLElement} errorEl
- * @param {{ min?: number, max?: number, platform?: string }} [options]
+ * @param {{ min?: number, max?: number, step?: number, platform?: string }} [options]
  */
 export function validateField(type, input, field, errorEl, options = {}) {
   const canonical = canonicalInputName(type) || type;

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://like-dealer.com/contracts/operator-commands.json",
+  "title": "Operator command proposal",
+  "type": "object",
+  "required": ["command", "reason", "idempotencyKey"],
+  "additionalProperties": false,
+  "properties": {
+    "command": {
+      "type": "string",
+      "enum": [
+        "replay_job",
+        "attach_provider_order_id",
+        "mark_provider_nonacceptance",
+        "pause_catalogue",
+        "provider_kill_switch",
+        "propose_refund"
+      ]
+    },
+    "reason": { "type": "string", "minLength": 3 },
+    "idempotencyKey": { "type": "string", "minLength": 8 },
+    "orderId": { "type": "string" },
+    "jobId": { "type": "string" },
+    "providerOrderId": { "type": "string" },
+    "amountMinor": { "type": "integer", "minimum": 1, "maximum": 500000 },
+    "enabled": { "type": "boolean" }
+  }
+}

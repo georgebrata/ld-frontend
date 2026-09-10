@@ -405,8 +405,32 @@
 }
 
 .form-error {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--color-error);
+}
+
+.checkout-summary {
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background: #f4f5f6;
+  border-radius: 8px;
+  color: var(--color-dark);
+  text-align: left;
+}
+
+.checkout-summary p {
+  margin: 0 0 0.35rem;
+  color: var(--color-card-text);
+}
+
+.checkout-policies a {
+  color: var(--color-dark);
+  text-decoration: underline;
+}
+
+.checkout-comment-count {
+  font-size: 0.9rem;
+  color: var(--color-card-text);
 }
 
 .checkout-price {

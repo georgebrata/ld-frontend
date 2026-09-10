@@ -128,6 +128,7 @@ export function joinService(retail, provider, money) {
     dripEnabled: retail.dripEnabled,
     markupMultiplier: retail.markupMultiplier,
     packagePriceMinor: retail.packagePriceMinor,
+    minContributionMinor: retail.minContributionMinor,
     disableReason: enabled
       ? ''
       : !retail.visible
@@ -203,16 +204,26 @@ function toPublicServiceFromInternal(internal) {
  * @param {object} env
  * @param {object} [deps]
  */
+async function applyCataloguePause(payload, deps) {
+  if (typeof deps.cacheGet !== 'function') return payload;
+  const paused = await deps.cacheGet('ops:catalogue_paused');
+  if (!paused || paused.paused !== true) return payload;
+  const data = Array.isArray(payload.data)
+    ? payload.data.map((row) => ({ ...row, purchasable: false, enabled: false }))
+    : payload.data;
+  return { ...payload, data, paused: true };
+}
+
 export async function getPublicCatalogue(env, deps = {}) {
   const now = deps.now ? deps.now() : Date.now();
   if (memory.public && memory.public.expires > now) {
-    return { ...memory.public.payload, cache: 'memory' };
+    return applyCataloguePause({ ...memory.public.payload, cache: 'memory' }, deps);
   }
   if (deps.cacheGet) {
     const cached = await deps.cacheGet('catalogue:public');
     if (cached && cached.expires > now) {
       memory.public = cached;
-      return { ...cached.payload, cache: 'store' };
+      return applyCataloguePause({ ...cached.payload, cache: 'store' }, deps);
     }
   }
 
@@ -233,15 +244,15 @@ export async function getPublicCatalogue(env, deps = {}) {
     };
     memory.public = entry;
     if (deps.cacheSet && providerOk) await deps.cacheSet('catalogue:public', entry, CATALOGUE_STALE_MS);
-    return { ...payload, cache: 'fresh' };
+    return applyCataloguePause({ ...payload, cache: 'fresh' }, deps);
   } catch (err) {
     if (memory.public && memory.public.staleUntil > now) {
-      return { ...memory.public.payload, cache: 'stale', warning: 'refresh_failed' };
+      return applyCataloguePause({ ...memory.public.payload, cache: 'stale', warning: 'refresh_failed' }, deps);
     }
     if (deps.cacheGet) {
       const stale = await deps.cacheGet('catalogue:public');
       if (stale && stale.staleUntil > now) {
-        return { ...stale.payload, cache: 'stale', warning: 'refresh_failed' };
+        return applyCataloguePause({ ...stale.payload, cache: 'stale', warning: 'refresh_failed' }, deps);
       }
     }
     throw err;

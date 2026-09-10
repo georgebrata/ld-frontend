@@ -10,7 +10,7 @@ Types: `supabase/functions/_shared/provider-types.js`
 
 | Action | Extra fields | Use |
 |--------|--------------|-----|
-| `services` | — | Catalogue |
+| `services` | — | Catalogue (also pulled daily by `refresh-catalogue`) |
 | `add` | type-specific | Create one order |
 | `status` | `order` or `orders` (≤100) | Poll |
 | `balance` | — | Owner diagnostics |

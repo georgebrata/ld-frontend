@@ -90,9 +90,7 @@
     }
 
     function concealPage() {
-      if (!page || prefersReduced) return;
-      page.classList.remove('is-revealed');
-      page.style.removeProperty('opacity');
+      /* Once ordering is revealed, keep it available for keyboard and assistive tech. */
     }
 
     function isMobileScene() {
@@ -240,6 +238,33 @@
 
     if (lastDelta > 0) requestFrame();
 
+    function setMenuInert(closed) {
+      if (!menuHolder) return;
+      menuHolder.hidden = closed;
+      if ('inert' in menuHolder) menuHolder.inert = closed;
+      else if (closed) menuHolder.setAttribute('inert', '');
+      else menuHolder.removeAttribute('inert');
+      menuHolder.setAttribute('aria-hidden', closed ? 'true' : 'false');
+    }
+
+    setMenuInert(true);
+
+    function trapFocus(event) {
+      if (!menuOpen || !menuHolder) return;
+      const focusable = [menuTrigger, ...menuItems].filter((el) => el instanceof HTMLElement);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.key !== 'Tab') return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
     function closeMenu() {
       if (!menuOpen || !menuHolder || !menuTrigger) return;
       menuOpen = false;
@@ -250,9 +275,13 @@
       menuHolder.style.removeProperty('height');
       menuHolder.style.removeProperty('opacity');
       if (inner) inner.classList.remove('hidden');
+      if (page) page.removeAttribute('inert');
       menuHolder.removeAttribute('role');
       menuHolder.removeAttribute('aria-modal');
       menuHolder.removeAttribute('aria-label');
+      setMenuInert(true);
+      document.removeEventListener('keydown', trapFocus, true);
+      document.documentElement.style.removeProperty('overflow');
       if (lastFocused instanceof HTMLElement) lastFocused.focus();
     }
 
@@ -263,13 +292,17 @@
       menuTrigger.classList.add('close');
       menuTrigger.setAttribute('aria-expanded', 'true');
       menuTrigger.setAttribute('aria-label', 'Close menu');
+      setMenuInert(false);
       menuHolder.classList.add('is-open');
       menuHolder.style.height = '100vh';
       menuHolder.style.opacity = '1';
       if (inner) inner.classList.add('hidden');
+      if (page) page.setAttribute('inert', '');
       menuHolder.setAttribute('role', 'dialog');
       menuHolder.setAttribute('aria-modal', 'true');
       menuHolder.setAttribute('aria-label', 'Site menu');
+      document.documentElement.style.overflow = 'hidden';
+      document.addEventListener('keydown', trapFocus, true);
       if (!prefersReduced) {
         menuItems.forEach((item, i) => {
           animate(item, [{ transform: 'translateY(500px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], 400, easeOut, i * 50);

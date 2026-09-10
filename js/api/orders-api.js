@@ -27,6 +27,11 @@ export async function createCheckoutSession(payload) {
     err.quote = json.quote;
     throw err;
   }
+  if (response.status === 409 && /start again/i.test(String(json.error || ''))) {
+    const err = new Error(json.error);
+    err.code = 'start_again';
+    throw err;
+  }
   if (!response.ok) throw new Error(readError(json, response.status));
   const url = String(json.checkoutUrl ?? json.url ?? '');
   if (!url) throw new Error('Checkout did not return a payment URL.');
@@ -42,7 +47,7 @@ export async function createCheckoutSession(payload) {
  * }} lookup
  */
 export async function getAuthorizedOrder(lookup) {
-  if (!lookup.token) return null;
+  if (!lookup.token) return { error: 'unauthorized' };
   try {
     const { response, json } = await invokeFunction('order-status', {
       body: {
@@ -52,10 +57,14 @@ export async function getAuthorizedOrder(lookup) {
       },
       headers: { 'X-Checkout-Token': lookup.token },
     });
-    if (!response.ok) return null;
-    return json.order && typeof json.order === 'object' ? json.order : null;
-  } catch {
-    return null;
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      return { error: 'unauthorized', status: response.status };
+    }
+    if (!response.ok) return { error: 'unavailable', status: response.status };
+    return { order: json.order && typeof json.order === 'object' ? json.order : null };
+  } catch (err) {
+    const aborted = Boolean(err && /** @type {{ name?: string }} */ (err).name === 'AbortError');
+    return { error: aborted ? 'timeout' : 'offline' };
   }
 }
 
