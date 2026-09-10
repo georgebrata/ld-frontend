@@ -4,12 +4,11 @@ import { handleAdminAction } from '../_shared/admin.js';
 
 Deno.serve(async (request) => {
   try {
-    const env = readEnv();
-    const headers = corsHeaders(request, env);
+    const ctx = await createContext(readEnv());
+    const headers = corsHeaders(request, ctx.env);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405, headers);
 
-    const ctx = await createContext(env);
     const client = createServiceClient(ctx.env);
     const body = await readJsonBody(request);
     if (!body.ok) return json({ error: body.error }, 400, headers);

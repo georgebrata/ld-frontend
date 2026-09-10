@@ -22,12 +22,14 @@ export function parseOriginAllowlist(raw) {
  * @returns {string}
  */
 const LOCAL_STOREFRONT = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+const VERCEL_STOREFRONT = /^https:\/\/ld-frontend(?:-[a-z0-9-]+)?\.vercel\.app$/i;
 
 export function pickAllowOrigin(request, allowlist) {
   const origin = request.headers.get('Origin') || '';
   const normalized = origin.replace(/\/$/, '');
   if (allowlist.includes(normalized)) return origin;
   if (LOCAL_STOREFRONT.test(normalized)) return origin;
+  if (VERCEL_STOREFRONT.test(normalized)) return origin;
   if (!origin && allowlist.length) return allowlist[0];
   return '';
 }
@@ -45,6 +47,7 @@ export function checkoutReturnOrigin(env, origin) {
     .replace(/\/$/, '');
   if (!candidate) return site;
   if (LOCAL_STOREFRONT.test(candidate)) return candidate;
+  if (VERCEL_STOREFRONT.test(candidate)) return candidate;
   const allowlist = parseOriginAllowlist(env?.CORS_ALLOW_ORIGINS || site);
   if (allowlist.includes(candidate) || candidate === site) return candidate;
   return site;
@@ -55,9 +58,14 @@ export function checkoutReturnOrigin(env, origin) {
  * @param {object} env
  */
 export function corsHeaders(request, env) {
+  const site = String(env.SITE_URL || 'https://like-dealer.com').replace(/\/$/, '');
   const allowlist = parseOriginAllowlist(
-    env.CORS_ALLOW_ORIGINS || `${env.SITE_URL || 'https://like-dealer.com'},http://localhost:3000,http://127.0.0.1:3000`
+    env.CORS_ALLOW_ORIGINS || `${site},https://ld-frontend-phi.vercel.app,http://localhost:3000,http://127.0.0.1:3000`
   );
+  if (site && !allowlist.includes(site)) allowlist.push(site);
+  if (!allowlist.includes('https://ld-frontend-phi.vercel.app')) {
+    allowlist.push('https://ld-frontend-phi.vercel.app');
+  }
   const allowOrigin = pickAllowOrigin(request, allowlist);
   /** @type {Record<string, string>} */
   const headers = {
