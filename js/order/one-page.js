@@ -227,11 +227,9 @@ export async function initOnePageOrder(preset = {}) {
         attrs: { 'data-service-id': service.id },
       });
       if (!service.purchasable) {
-        card.disabled = true;
-        card.setAttribute('aria-disabled', 'true');
-      } else {
-        card.addEventListener('click', () => selectService(service));
+        card.classList.add('is-unavailable');
       }
+      card.addEventListener('click', () => selectService(service));
       servicesGrid.appendChild(card);
     });
   }
@@ -308,7 +306,7 @@ export async function initOnePageOrder(preset = {}) {
   bindRadioKeys(servicesGrid, (index) => {
     const items = Array.from(servicesGrid.querySelectorAll('[role="radio"]'));
     const id = items[index]?.getAttribute('data-service-id');
-    const service = services.find((s) => s.id === id && s.purchasable);
+    const service = services.find((s) => s.id === id);
     if (service) selectService(service);
   });
 

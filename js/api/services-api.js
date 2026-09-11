@@ -73,27 +73,23 @@ export function parseInputs(raw) {
   return parseInputList(raw);
 }
 
+function withStorefrontUrl(service) {
+  return toPublicService({
+    ...service,
+    url: service.url ?? `/${service.platform}/${service.slug}/`,
+  });
+}
+
 async function fetchLiveCatalogue() {
   const { response, json } = await invokeFunction('catalogue', { method: 'GET' });
   if (!response.ok || !json.ok || !Array.isArray(json.data)) {
     throw new Error('Invalid services response');
   }
-  const live = assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map((service) =>
-    toPublicService({
-      ...service,
-      url: service.url ?? `/${service.platform}/${service.slug}/`,
-    })
-  );
-  const boot = readBootstrap();
-  if (!Array.isArray(boot) || !boot.length) return live;
-  const have = new Set(live.map((service) => service.id));
-  const extras = assignServiceSlugs(
-    boot.map((row) => toPublicService(normalizeService(row))).filter((service) => service.visible && !have.has(service.id))
-  ).map((service) => ({
-    ...service,
-    url: service.url ?? `/${service.platform}/${service.slug}/`,
-  }));
-  return extras.length ? [...live, ...extras] : live;
+  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map(withStorefrontUrl);
+}
+
+export function resetServicesCache() {
+  cache = null;
 }
 
 export function readEmbeddedServices() {
@@ -106,19 +102,9 @@ export async function getServices(options = {}) {
   if (cache && !options.force) return cache;
 
   const embedded = readEmbeddedServices();
-  if (!options.force && embedded.length && !options.liveOnly) {
-    if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
-      fetchLiveCatalogue()
-        .then((live) => {
-          cache = live;
-        })
-        .catch(() => {});
-    }
-    cache = embedded;
-    return cache;
-  }
+  const canLive = Boolean(CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL);
 
-  if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
+  if (canLive && !options.embeddedOnly) {
     try {
       cache = await fetchLiveCatalogue();
       return cache;
@@ -179,4 +165,5 @@ export const servicesApi = {
   getServiceById,
   groupByPlatform,
   getUniquePlatforms,
+  resetServicesCache,
 };

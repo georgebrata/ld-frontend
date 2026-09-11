@@ -54,16 +54,58 @@ const INPUT_REGISTRY = {
     hint: 'One group per line.',
   },
   email: {
-    label: 'Email',
+    label: 'Confirmation email',
     type: 'email',
     placeholder: 'you@example.com',
-    hint: 'We will send your payment receipt here.',
+    hint: 'We will send a confirmation here after your payment is confirmed.',
   },
   quantity: {
     label: 'Quantity',
     type: 'number',
     placeholder: '1000',
     hint: 'Choose how many you want. Limits are shown below.',
+  },
+  runs: {
+    label: 'Runs',
+    type: 'number',
+    placeholder: '2',
+    hint: 'How many times this order should run.',
+  },
+  interval: {
+    label: 'Interval (minutes)',
+    type: 'number',
+    placeholder: '60',
+    hint: 'Minutes between runs.',
+  },
+  country: {
+    label: 'Country',
+    type: 'text',
+    placeholder: 'US',
+    hint: 'Country for this traffic or audience.',
+  },
+  device: {
+    label: 'Device',
+    type: 'text',
+    placeholder: 'Mobile',
+    hint: 'Device type for this order.',
+  },
+  type_of_traffic: {
+    label: 'Traffic type',
+    type: 'text',
+    placeholder: 'Organic',
+    hint: 'Kind of traffic to send.',
+  },
+  google_keyword: {
+    label: 'Google keyword',
+    type: 'text',
+    placeholder: 'keyword',
+    hint: 'Search keyword for this order.',
+  },
+  referring_url: {
+    label: 'Referring URL',
+    type: 'url',
+    placeholder: 'https://…',
+    hint: 'Where this traffic should appear to come from.',
   },
 };
 

@@ -12,6 +12,7 @@ import {
   readCheckoutDraft,
 } from './capability.js';
 import { renderInput, validateField, collectServiceInputValues } from './input-renderer.js';
+import { checkoutFieldPlan } from './fields.js';
 
 const SUPPORT = CONFIG.SUPPORT_EMAIL || 'support@like-dealer.com';
 
@@ -26,13 +27,6 @@ function estimateLabel(service, quantity) {
   const total = estimateTotalMinor(service.retailRateMinor, quantity, service.rateUnit);
   if (total == null) return 'Total confirmed before payment';
   return `${formatMoney(total, service.currency)} estimated`;
-}
-
-function quantityMode(service) {
-  const declared = service.quantityMode;
-  if (declared === 'from_comments' || declared === 'package' || declared === 'omit') return declared;
-  if ((service.inputs || []).includes('comments')) return 'from_comments';
-  return declared || 'required';
 }
 
 function targetCopy(service) {
@@ -72,8 +66,7 @@ export async function mountCheckoutForm(container, service) {
   clearChildren(container);
   let submitting = false;
   let reviewedQuote = null;
-  const mode = quantityMode(service);
-  const needsQuantity = mode === 'required';
+  const { serviceInputTypes, needsQuantity, mode } = checkoutFieldPlan(service);
   const draft = readCheckoutDraft();
   const sameService = draft?.serviceId === service.id;
   const copy = targetCopy(service);
@@ -82,11 +75,6 @@ export async function mountCheckoutForm(container, service) {
   const status = createEl('p', { className: 'checkout-status', role: 'status', 'aria-live': 'polite' });
   container.appendChild(heading);
   container.appendChild(status);
-
-  if (!service.purchasable) {
-    status.textContent = 'This service is not available to purchase right now.';
-    return;
-  }
 
   const form = createEl('form', { className: 'checkout-form', novalidate: 'true' });
   const errorBanner = createEl('p', {
@@ -97,7 +85,6 @@ export async function mountCheckoutForm(container, service) {
   errorBanner.hidden = true;
   form.appendChild(errorBanner);
 
-  const serviceInputTypes = (service.inputs ?? []).filter((type) => type !== 'email' && type !== 'quantity');
   serviceInputTypes.forEach((type) => {
     const rendered = renderInput(type, form, {
       value: sameService ? draft?.inputs?.[type] : undefined,
@@ -194,7 +181,7 @@ export async function mountCheckoutForm(container, service) {
       createEl('p', { className: 'checkout-summary__title' }, 'Order review'),
       createEl('p', {}, `${service.label} · ${quantity.toLocaleString('en-US')}`),
       createEl('p', {}, target || 'Add a public target above.'),
-      createEl('p', {}, email?.value.trim() || 'Add the receipt email above.')
+      createEl('p', {}, email?.value.trim() || 'Add the confirmation email above.')
     );
   }
 
@@ -226,6 +213,12 @@ export async function mountCheckoutForm(container, service) {
     });
   });
   refreshEstimate();
+
+  if (!service.purchasable) {
+    status.textContent = 'This service is not available to purchase right now.';
+    container.appendChild(form);
+    return;
+  }
 
   const submitBtn = createEl(
     'button',

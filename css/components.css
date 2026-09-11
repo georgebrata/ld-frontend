@@ -82,6 +82,11 @@
   outline-offset: 4px;
 }
 
+.choice-card.is-unavailable:not(.is-selected),
+.service-card.is-unavailable:not(.is-selected) {
+  opacity: 0.7;
+}
+
 .choice-card.is-selected,
 .home-card.is-selected,
 .service-card.is-selected,
