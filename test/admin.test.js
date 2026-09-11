@@ -259,3 +259,30 @@ test('products.list reports mapped, unmapped, and missing disableReason', async 
   assert.equal(byId['02'].disableReason, 'unmapped');
   assert.equal(byId['03'].disableReason, 'missing');
 });
+
+test('products.upsert persists min_contribution_minor on update', async () => {
+  const store = createMemoryStore();
+  await store.upsertProduct(sampleProduct());
+  const extras = await withAdmin(store);
+  const result = await handleAdminAction(
+    { env: { SOCIALPANEL24_API_KEY: 'k', RETAIL_CURRENCY: 'USD', MARKUP_MULTIPLIER: '2' }, store },
+    {
+      action: 'products.upsert',
+      product: {
+        id: '01',
+        platform: 'instagram',
+        platformLabel: 'Instagram',
+        service: 'Likes',
+        slug: 'likes',
+        rateUnit: 'per_1000',
+        markupMultiplier: 2,
+        inputs: ['url'],
+        minContributionMinor: 45,
+      },
+    },
+    extras
+  );
+  assert.equal(result.status, 200);
+  assert.equal(result.body.created, false);
+  assert.equal(result.body.product.minContributionMinor, 45);
+});
