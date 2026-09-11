@@ -44,12 +44,22 @@ export function isPaymentIntentId(value) {
   return /^pi_[A-Za-z0-9_]+$/.test(String(value || ''));
 }
 
+function stripeApiVersion(env) {
+  return String(env.STRIPE_API_VERSION || '').trim();
+}
+
+function usesDahliaApi(env) {
+  return /dahlia/i.test(stripeApiVersion(env));
+}
+
 function stripeHeaders(env, extra = {}) {
-  return {
+  const headers = {
     Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-    'Stripe-Version': env.STRIPE_API_VERSION || STRIPE_API_VERSION,
     ...extra,
   };
+  const version = stripeApiVersion(env);
+  if (version) headers['Stripe-Version'] = version;
+  return headers;
 }
 
 /**
@@ -84,7 +94,9 @@ export async function createCheckoutSession(env, order, quote, fetchImpl = fetch
         success_url: success,
         cancel_url: cancel,
         client_reference_id: order.id,
-        integration_identifier: quote.integrationIdentifier,
+        ...(usesDahliaApi(env) && quote.integrationIdentifier
+          ? { integration_identifier: quote.integrationIdentifier }
+          : {}),
         'line_items[0][quantity]': '1',
         'line_items[0][price_data][currency]': String(quote.currency).toLowerCase(),
         'line_items[0][price_data][unit_amount]': String(quote.amountMinor),
@@ -101,7 +113,9 @@ export async function createCheckoutSession(env, order, quote, fetchImpl = fetch
 
   const json = await response.json().catch(() => ({}));
   if (!response.ok || !json.url || !isCheckoutSessionId(json.id)) {
-    throw new Error('Could not start Stripe Checkout.');
+    const err = new Error('Could not start Stripe Checkout.');
+    err.code = 'stripe_unavailable';
+    throw err;
   }
   return json;
 }

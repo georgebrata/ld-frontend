@@ -21,7 +21,8 @@ Deno.serve(async (request) => {
       storefrontOrigin: request.headers.get('Origin') || '',
     });
     return json(result.body, result.status, headers);
-  } catch {
+  } catch (err) {
+    console.error('create-checkout failed', err instanceof Error ? err.message : 'unknown');
     const headers = corsHeaders(request, readEnv());
     return json({ error: 'Something went wrong. Please try again.' }, 500, headers);
   }

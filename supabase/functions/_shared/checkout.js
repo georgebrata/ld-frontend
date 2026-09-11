@@ -228,24 +228,32 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
     });
   }
 
-  const session = await createCheckoutSession(
-    env,
-    {
-      id: orderId,
-      email: checked.customerEmail,
-      checkoutAttemptId: checked.checkoutAttemptId,
-      serviceId: internal.id,
-      serviceLabel: internal.label,
-      storefrontOrigin: deps.storefrontOrigin || '',
-    },
-    {
-      amountMinor: quote.amountMinor,
-      currency: quote.currency,
-      idempotencyKey: `ld-checkout-${checked.checkoutAttemptId}-r${revision}`,
-      integrationIdentifier,
-    },
-    deps.fetchImpl
-  );
+  let session;
+  try {
+    session = await createCheckoutSession(
+      env,
+      {
+        id: orderId,
+        email: checked.customerEmail,
+        checkoutAttemptId: checked.checkoutAttemptId,
+        serviceId: internal.id,
+        serviceLabel: internal.label,
+        storefrontOrigin: deps.storefrontOrigin || '',
+      },
+      {
+        amountMinor: quote.amountMinor,
+        currency: quote.currency,
+        idempotencyKey: `ld-checkout-${checked.checkoutAttemptId}-r${revision}`,
+        integrationIdentifier,
+      },
+      deps.fetchImpl
+    );
+  } catch (err) {
+    if (err && err.code === 'stripe_unavailable') {
+      return { status: 503, body: { error: 'Could not start payment. Try again in a moment.' } };
+    }
+    throw err;
+  }
 
   await store.updateOrder(orderId, {
     stripe_session_id: session.id,
