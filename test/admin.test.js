@@ -79,6 +79,8 @@ test('unauthenticated admin actions are rejected', async () => {
 
 test('a valid JWT for a non-allowlisted user is forbidden', async () => {
   const store = createMemoryStore();
+  await store.insertAdminUser({ user_id: 'admin-1', email: 'ops@like-dealer.com' });
+  await store.setFlag(ADMIN_REGISTERED_FLAG, false);
   const result = await handleAdminAction(
     { env: {}, store },
     { action: 'products.list' },
@@ -88,6 +90,70 @@ test('a valid JWT for a non-allowlisted user is forbidden', async () => {
     }
   );
   assert.equal(result.status, 403);
+});
+
+test('the first signed-in user is claimed while registration is open', async () => {
+  const store = createMemoryStore();
+  await store.upsertProduct(sampleProduct());
+  const result = await handleAdminAction(
+    { env: { SOCIALPANEL24_API_KEY: 'k', RETAIL_CURRENCY: 'USD', MARKUP_MULTIPLIER: '2' }, store },
+    { action: 'products.list' },
+    {
+      request: request({ Authorization: 'Bearer valid-token' }),
+      getUser: async () => ({ id: 'orphan-1', email: 'ops@like-dealer.com' }),
+      fetchImpl: fetchProvider(),
+    }
+  );
+  assert.equal(result.status, 200);
+  assert.equal(result.body.ok, true);
+  assert.equal(await store.countAdmins(), 1);
+  const flag = await store.getFlag(ADMIN_REGISTERED_FLAG);
+  assert.equal(flag.enabled, false);
+  const row = await store.getAdminUser('orphan-1');
+  assert.equal(row.email, 'ops@like-dealer.com');
+});
+
+test('a later signed-in user cannot claim after the first admin exists', async () => {
+  const store = createMemoryStore();
+  await handleAdminAction(
+    { env: {}, store },
+    { action: 'products.list' },
+    {
+      request: request({ Authorization: 'Bearer first' }),
+      getUser: async () => ({ id: 'first', email: 'first@like-dealer.com' }),
+      fetchImpl: fetchProvider(),
+    }
+  );
+  const second = await handleAdminAction(
+    { env: {}, store },
+    { action: 'products.list' },
+    {
+      request: request({ Authorization: 'Bearer second' }),
+      getUser: async () => ({ id: 'second', email: 'second@like-dealer.com' }),
+    }
+  );
+  assert.equal(second.status, 403);
+  assert.equal(await store.countAdmins(), 1);
+});
+
+test('register attaches an existing Auth user when createUser reports a duplicate', async () => {
+  const store = createMemoryStore();
+  const result = await handleAdminAction(
+    { env: {}, store },
+    { action: 'register', email: 'ops@like-dealer.com', password: 'twelve chars!!' },
+    {
+      createUser: async () => {
+        const err = new Error('User already registered');
+        err.code = '23505';
+        throw err;
+      },
+      findUser: async () => ({ id: 'existing-1', email: 'ops@like-dealer.com' }),
+    }
+  );
+  assert.equal(result.status, 201);
+  assert.equal(await store.countAdmins(), 1);
+  const row = await store.getAdminUser('existing-1');
+  assert.equal(row.email, 'ops@like-dealer.com');
 });
 
 test('bootstrap reports registerOpen without leaking products', async () => {

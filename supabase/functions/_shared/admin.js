@@ -386,6 +386,39 @@ async function createUserFromClient(client, { email, password }) {
   return { id: data.user.id, email: data.user.email || email };
 }
 
+async function findUserByEmailFromClient(client, email) {
+  if (typeof client?.auth?.admin?.listUsers !== 'function') return null;
+  const wanted = normalizeEmail(email);
+  const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 200 });
+  if (error || !Array.isArray(data?.users)) return null;
+  const hit = data.users.find((row) => normalizeEmail(row?.email) === wanted);
+  return hit?.id ? { id: hit.id, email: hit.email || email } : null;
+}
+
+/**
+ * First signed-in user while ADMIN_REGISTERED is open becomes the allowlisted admin.
+ * Heals Auth users created when register ran before admin_users existed.
+ * @param {object} store
+ * @param {{ id: string, email?: string }} user
+ */
+async function claimFirstAdmin(store, user) {
+  const email = normalizeEmail(user.email);
+  if (!user?.id || !isValidEmail(email)) return { ok: false };
+  const flag = await store.getFlag(ADMIN_REGISTERED_FLAG);
+  if (!flag?.enabled) return { ok: false };
+  if ((await store.countAdmins()) > 0) return { ok: false };
+  try {
+    const row = await store.insertAdminUser({ user_id: user.id, email, role: 'admin' });
+    await store.setFlag(ADMIN_REGISTERED_FLAG, false);
+    return { ok: true, admin: row };
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    const existing = await store.getAdminUser(user.id);
+    if (existing && !existing.disabled_at) return { ok: true, admin: existing };
+    return { ok: false };
+  }
+}
+
 /**
  * @param {object} store
  * @param {{ headers?: { get: (name: string) => string|null } }} request
@@ -402,7 +435,11 @@ export async function requireAdmin(store, request, extras = {}) {
     return { ok: false, status: 401, error: 'Unauthorized.' };
   }
   if (!user?.id) return { ok: false, status: 401, error: 'Unauthorized.' };
-  const row = await store.getAdminUser(user.id);
+  let row = await store.getAdminUser(user.id);
+  if (!row || row.disabled_at) {
+    const claimed = await claimFirstAdmin(store, user);
+    if (claimed.ok) row = claimed.admin;
+  }
   if (!row || row.disabled_at) return { ok: false, status: 403, error: 'Forbidden.' };
   return { ok: true, user: { id: user.id, email: user.email || row.email }, admin: row };
 }
@@ -443,14 +480,21 @@ async function handleRegister(store, body, extras) {
   }
 
   const createUser = extras.createUser || ((payload) => createUserFromClient(extras.client, payload));
+  const findUser = extras.findUser || ((value) => findUserByEmailFromClient(extras.client, value));
   let user;
   try {
     user = await createUser({ email, password });
   } catch (err) {
     if (isUniqueViolation(err) || /already/i.test(err instanceof Error ? err.message : '')) {
-      return { status: 409, body: { ok: false, error: 'That email is already registered.' } };
+      try {
+        user = await findUser(email);
+      } catch {
+        user = null;
+      }
+      if (!user?.id) return { status: 409, body: { ok: false, error: 'That email is already registered.' } };
+    } else {
+      return { status: 500, body: { ok: false, error: 'Could not create admin.' } };
     }
-    return { status: 500, body: { ok: false, error: 'Could not create admin.' } };
   }
   if (!user?.id) return { status: 500, body: { ok: false, error: 'Could not create admin.' } };
 
