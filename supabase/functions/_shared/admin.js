@@ -1,6 +1,6 @@
 /**
- * Admin catalogue console. JWT + admin_users allowlist; product writes stay
- * on the service-role store. Prices are still computed only via joinService.
+ * Admin console. JWT + admin_users allowlist. Product writes and order reads
+ * stay on the service-role store. Prices are still computed only via joinService.
  */
 
 import { STOREFRONT_INPUTS, canonicalInputName, parseInputList } from './inputs.js';
@@ -13,6 +13,7 @@ import {
 } from './catalogue.js';
 import { findProviderService } from './pricing.js';
 import { getProviderType, isSupportedProviderType } from './provider-types.js';
+import { handleOrdersGet, handleOrdersList, handleOrdersRefill } from './admin-orders.js';
 
 export const ADMIN_REGISTERED_FLAG = 'ADMIN_REGISTERED';
 export const SLUG_PATTERN = /^[a-z][a-z0-9-]{0,47}$/;
@@ -28,6 +29,9 @@ const AUTH_ACTIONS = new Set([
   'products.reorder',
   'provider.services',
   'catalogue.refresh',
+  'orders.list',
+  'orders.get',
+  'orders.refill',
 ]);
 
 const PLATFORM_HINTS = [
@@ -448,8 +452,15 @@ async function rateLimit(store, extras, action) {
   if (typeof store.consumeRateLimit !== 'function') return { allowed: true };
   const ip = extras.ip || 'unknown';
   const publicAction = PUBLIC_ACTIONS.has(action);
-  const bucket = publicAction ? (action === 'register' ? 'admin-register' : 'admin-public') : 'admin';
-  const limit = action === 'register' ? 5 : publicAction ? 30 : 60;
+  const listOrders = action === 'orders.list';
+  const bucket = publicAction
+    ? action === 'register'
+      ? 'admin-register'
+      : 'admin-public'
+    : listOrders
+      ? 'admin-orders-list'
+      : 'admin';
+  const limit = action === 'register' ? 5 : publicAction ? 30 : listOrders ? 120 : 60;
   const windowSec = action === 'register' ? 300 : 60;
   return store.consumeRateLimit(bucket, ip, limit, windowSec);
 }
@@ -693,6 +704,9 @@ export async function handleAdminAction(ctx, body, extras = {}) {
   if (action === 'products.reorder') return handleProductsReorder(store, body, actor);
   if (action === 'provider.services') return handleProviderServices(env, store, merged);
   if (action === 'catalogue.refresh') return handleCatalogueRefresh(env, store, actor, merged);
+  if (action === 'orders.list') return handleOrdersList(env, store, body);
+  if (action === 'orders.get') return handleOrdersGet(env, store, body, merged);
+  if (action === 'orders.refill') return handleOrdersRefill(env, store, body, actor, merged);
 
   return { status: 400, body: { ok: false, error: 'Unknown action.' } };
 }

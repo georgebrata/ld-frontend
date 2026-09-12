@@ -14,6 +14,8 @@ Types: `supabase/functions/_shared/provider-types.js`
 | `add` | type-specific | Create one order |
 | `status` | `order` or `orders` (≤100) | Poll |
 | `balance` | — | Owner diagnostics |
+| `refill` | `order` | Admin-requested refill of an existing provider order |
+| `refill_status` | `refill` | Poll a refill id (single-id form only) |
 
 ## Enabled `add` types
 
@@ -28,11 +30,11 @@ Web Traffic: `device` is `1`–`5`, not `Desktop`. `type_of_traffic` 1 requires 
 
 Subscriptions are disabled (unlimited future posts if `posts` is omitted).
 
-Refill/cancel are operator extensions. Provider cancel does not refund Stripe.
+Refill is an admin action (`orders.refill` → `provider_refill` job). It runs only when the order is paid, fulfilment is `completed` or `partial`, the provider service advertises `refill`, and the live dispatch gate allows it. Ambiguous refill HTTP outcomes become `provider_refill_status=unknown` and are never auto-retried. Provider cancel is still an operator extension and does not refund Stripe.
 
 ## Fixtures
 
-`test/fixtures/socialpanel24.json` — services list, `{ "order": 23501 }`, Partial / In progress / Completed / unknown status, batch mix, insufficient balance, validation error.
+`test/fixtures/socialpanel24.json` — services list, `{ "order": 23501 }`, Partial / In progress / Completed / unknown status, batch mix, insufficient balance, validation error, refill accepted/rejected and refill status.
 
 ## Mapping retail rows
 

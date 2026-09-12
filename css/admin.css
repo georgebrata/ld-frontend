@@ -355,6 +355,140 @@ body.page-admin--auth {
   color: var(--color-dark);
 }
 
+.admin-nav {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.admin-nav a {
+  color: var(--color-white);
+  text-decoration: none;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.admin-nav a[aria-current='page'],
+.admin-nav a:hover,
+.admin-nav a:focus {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.admin-orders {
+  padding-bottom: var(--space-xl);
+}
+
+.admin-split--orders {
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+}
+
+.admin-table-wrap {
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+.admin-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-dark);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table th button {
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+}
+
+.admin-table tbody tr {
+  cursor: pointer;
+}
+
+.admin-table tbody tr.is-selected {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-orders__pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 0 var(--space-lg) var(--space-sm);
+}
+
+.admin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.admin-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.admin-json {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: var(--space-sm);
+}
+
+.admin-timeline,
+.admin-mini-table {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-timeline li,
+.admin-mini-table li {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.admin-filter-advanced {
+  grid-column: 1 / -1;
+}
+
+.admin-filter-advanced .admin-filters {
+  padding: var(--space-sm) 0 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .admin-product,
   .mapping-picker__item {

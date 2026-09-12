@@ -558,6 +558,8 @@ async function main() {
     const admin = await readFile(path.join(DIST, 'admin/index.html'), 'utf8');
     if (!admin.includes('data-page="admin-login"')) throw new Error('build check failed: admin page');
     if (admin.includes('socialpanelId')) throw new Error('build check failed: socialpanelId in admin html');
+    const orders = await readFile(path.join(DIST, 'admin/orders/index.html'), 'utf8');
+    if (!orders.includes('data-page="admin-orders"')) throw new Error('build check failed: admin orders page');
   }
 
   console.log(`Built dist/ with ${platforms.length} platform page(s) and ${services.length} service page(s).`);

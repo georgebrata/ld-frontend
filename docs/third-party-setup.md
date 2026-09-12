@@ -21,6 +21,7 @@ npx supabase@2.58.5 functions deploy refresh-catalogue --no-verify-jwt
 npx supabase@2.58.5 functions deploy health --no-verify-jwt
 npx supabase@2.58.5 functions deploy operator --no-verify-jwt
 npx supabase@2.58.5 functions deploy resend-webhook --no-verify-jwt
+npx supabase@2.58.5 functions deploy admin --no-verify-jwt
 ```
 
 Generate `WORKER_SECRET` with a long random string (not the anon key).

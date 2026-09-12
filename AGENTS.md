@@ -47,6 +47,8 @@
 | Provider | `supabase/functions/_shared/socialpanel24.js` |
 | Operator | `supabase/functions/_shared/operator.js` |
 | Admin catalogue | `supabase/functions/_shared/admin.js` (`/admin/`) |
+| Admin orders | `supabase/functions/_shared/admin-orders.js` (`/admin/orders/`) |
+| Provider refill | `supabase/functions/_shared/refill.js` |
 | Health | `supabase/functions/health/index.js` |
 | Contracts | `contracts/` |
 

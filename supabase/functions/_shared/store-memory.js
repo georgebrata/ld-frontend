@@ -3,6 +3,8 @@
  * surface without a live database.
  */
 
+import { applyMemoryOrderQuery } from './admin-orders.js';
+
 function nowIso(date) {
   return (date instanceof Date ? date : new Date()).toISOString();
 }
@@ -35,6 +37,10 @@ export function createMemoryStore(clock = () => new Date()) {
   });
   /** @type {any[]} */
   const productAudit = [];
+  /** @type {any[]} */
+  const orderEvents = [];
+  /** @type {any[]} */
+  const externalAttempts = [];
 
   const store = {
     orders,
@@ -44,6 +50,8 @@ export function createMemoryStore(clock = () => new Date()) {
     adminUsers,
     flags,
     productAudit,
+    orderEvents,
+    externalAttempts,
 
     async transaction(fn) {
       return fn(store);
@@ -81,15 +89,40 @@ export function createMemoryStore(clock = () => new Date()) {
         err.existing = existing;
         throw err;
       }
-      orders.push({ ...order });
-      return { ...order };
+      const row = { ...order };
+      orders.push(row);
+      orderEvents.push({
+        id: crypto.randomUUID(),
+        order_id: row.id,
+        actor: 'system',
+        action: 'INSERT',
+        from_state: null,
+        to_state: `${row.payment_status}/${row.fulfillment_status}`,
+        reason: null,
+        created_at: nowIso(clock()),
+      });
+      return { ...row };
     },
 
     async updateOrder(id, patch) {
       const index = orders.findIndex((row) => row.id === id);
       if (index < 0) return null;
-      orders[index] = { ...orders[index], ...patch, updated_at: nowIso(clock()) };
-      return { ...orders[index] };
+      const prev = orders[index];
+      orders[index] = { ...prev, ...patch, updated_at: nowIso(clock()) };
+      const next = orders[index];
+      if (prev.payment_status !== next.payment_status || prev.fulfillment_status !== next.fulfillment_status) {
+        orderEvents.push({
+          id: crypto.randomUUID(),
+          order_id: id,
+          actor: 'system',
+          action: 'UPDATE',
+          from_state: `${prev.payment_status}/${prev.fulfillment_status}`,
+          to_state: `${next.payment_status}/${next.fulfillment_status}`,
+          reason: null,
+          created_at: next.updated_at,
+        });
+      }
+      return { ...next };
     },
 
     async insertStripeEvent(eventId, eventType, livemode, extra = {}) {
@@ -322,9 +355,21 @@ export function createMemoryStore(clock = () => new Date()) {
     },
 
     async recordExternalAttempt(row) {
-      const attempts = store.externalAttempts || (store.externalAttempts = []);
-      attempts.push({ ...row, id: crypto.randomUUID(), created_at: nowIso(clock()) });
-      return attempts[attempts.length - 1];
+      const item = {
+        id: crypto.randomUUID(),
+        order_id: row.orderId || row.order_id || null,
+        job_id: row.jobId || row.job_id || null,
+        vendor: row.vendor,
+        action: row.action,
+        fingerprint: row.fingerprint || '',
+        idempotency_key: row.idempotencyKey || row.idempotency_key || null,
+        attempted_at: row.attemptedAt || row.attempted_at || nowIso(clock()),
+        outcome: row.outcome || 'attempted',
+        external_ref: row.externalRef || row.external_ref || null,
+        created_at: nowIso(clock()),
+      };
+      externalAttempts.push(item);
+      return { ...item };
     },
 
     async purgeRateLimits() {
@@ -404,6 +449,55 @@ export function createMemoryStore(clock = () => new Date()) {
           row.provider_order_id &&
           ['submitted', 'in_progress', 'dispatching'].includes(row.fulfillment_status)
       );
+    },
+
+    async listRefillPollingOrders() {
+      return orders.filter(
+        (row) => row.provider_refill_id && ['requested', 'pending'].includes(row.provider_refill_status)
+      );
+    },
+
+    async listOrders(query) {
+      return applyMemoryOrderQuery(orders, query);
+    },
+
+    async listOrderEvents(orderId) {
+      return orderEvents
+        .filter((row) => row.order_id === orderId)
+        .slice()
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+        .map((row) => ({ ...row }));
+    },
+
+    async listOrderJobs(orderId) {
+      return jobs
+        .filter((row) => row.order_id === orderId)
+        .slice()
+        .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+        .map((row) => ({ ...row }));
+    },
+
+    async listOrderExternalRequests(orderId) {
+      return externalAttempts
+        .filter((row) => row.order_id === orderId)
+        .slice()
+        .sort((a, b) => String(b.attempted_at || '').localeCompare(String(a.attempted_at || '')))
+        .map((row) => ({ ...row }));
+    },
+
+    async appendOrderEvent({ orderId, actor, action, fromState, toState, reason }) {
+      const item = {
+        id: crypto.randomUUID(),
+        order_id: orderId,
+        actor: actor || 'admin',
+        action,
+        from_state: fromState || null,
+        to_state: toState || null,
+        reason: reason || null,
+        created_at: nowIso(clock()),
+      };
+      orderEvents.push(item);
+      return { ...item };
     },
 
     async listAppSecrets() {

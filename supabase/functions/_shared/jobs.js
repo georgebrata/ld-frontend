@@ -7,7 +7,20 @@ import { formatMoney } from './money.js';
 import { customerPaymentEmail, ownerAlertEmail, ownerPaymentEmail } from './email-templates.js';
 import { resendIdempotencyExpired, sendResendEmail } from './email.js';
 import { fulfillPaidOrder, isPollingTerminal, pollProviderOrders } from './fulfillment.js';
+import { pollRefillStatuses, requestOrderRefill, REFILL_TERMINAL } from './refill.js';
 import { logError } from './log.js';
+
+export const JOB_TASKS = Object.freeze([
+  'fulfill',
+  'poll_status',
+  'poll_provider_status',
+  'purge_rate_limits',
+  'email_customer_payment',
+  'email_owner_payment',
+  'email_owner_alert',
+  'provider_refill',
+  'poll_refill_status',
+]);
 
 function backoffMs(attempts) {
   const exp = Math.min(Math.max(Number(attempts) || 1, 1), 12);
@@ -82,6 +95,21 @@ export async function processJob(env, store, job, deps = {}) {
     return;
   }
 
+  if (job.task === 'provider_refill') {
+    if (!order) {
+      await store.failJob(job.id, { reason: 'missing_order' }, new Date().toISOString(), true);
+      return;
+    }
+    await requestOrderRefill(env, store, order, job, deps);
+    return;
+  }
+
+  if (job.task === 'poll_refill_status') {
+    await pollRefillStatuses(env, store, deps);
+    await settleRefillPollJob(store, job);
+    return;
+  }
+
   await store.skipJob(job.id, { reason: 'unknown_task' });
 }
 
@@ -110,6 +138,21 @@ async function settlePollJob(env, store, job, order, deps) {
   }
   const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
   await store.failJob(job.id, { reason: 'requeue_poll', remaining: remaining.length }, next, exhausted(job));
+}
+
+async function settleRefillPollJob(store, job) {
+  const remaining =
+    typeof store.listRefillPollingOrders === 'function'
+      ? (await store.listRefillPollingOrders()).filter(
+          (row) => row.provider_refill_id && !REFILL_TERMINAL.includes(row.provider_refill_status)
+        )
+      : [];
+  if (!remaining.length) {
+    await store.completeJob(job.id, { polled: 0, drained: true });
+    return;
+  }
+  const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
+  await store.failJob(job.id, { reason: 'requeue_refill_poll', remaining: remaining.length }, next, exhausted(job));
 }
 
 /**
@@ -233,7 +276,10 @@ export async function processDueJobs(env, store, deps = {}) {
   const workerId = deps.workerId || crypto.randomUUID();
   const claimed = await store.claimJobs(workerId, deps.limit || 20);
   const pollJobs = claimed.filter((job) => job.task === 'poll_status' || job.task === 'poll_provider_status');
-  const others = claimed.filter((job) => job.task !== 'poll_status' && job.task !== 'poll_provider_status');
+  const refillPollJobs = claimed.filter((job) => job.task === 'poll_refill_status');
+  const others = claimed.filter(
+    (job) => job.task !== 'poll_status' && job.task !== 'poll_provider_status' && job.task !== 'poll_refill_status'
+  );
   const results = [];
 
   if (pollJobs.length) {
@@ -247,6 +293,30 @@ export async function processDueJobs(env, store, deps = {}) {
         await noteAttempt(store, job);
         const order = job.order_id ? await store.getOrderById(job.order_id) : null;
         await settlePollJob(env, store, job, order, deps);
+        results.push({ id: job.id, task: job.task, ok: true });
+      } catch (err) {
+        logError('job failed', { task: job.task });
+        await store.failJob(
+          job.id,
+          { error: 'exception' },
+          new Date(Date.now() + backoffMs(job.attempts)).toISOString(),
+          exhausted(job)
+        );
+        results.push({ id: job.id, task: job.task, ok: false });
+      }
+    }
+  }
+
+  if (refillPollJobs.length) {
+    try {
+      await pollRefillStatuses(env, store, deps);
+    } catch (err) {
+      logError('refill poll batch failed', { name: err instanceof Error ? err.name : 'error' });
+    }
+    for (const job of refillPollJobs) {
+      try {
+        await noteAttempt(store, job);
+        await settleRefillPollJob(store, job);
         results.push({ id: job.id, task: job.task, ok: true });
       } catch (err) {
         logError('job failed', { task: job.task });

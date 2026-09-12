@@ -2,6 +2,8 @@
  * Supabase repository. All writes use the service-role client from Edge Functions.
  */
 
+import { applySupabaseOrderFilters } from './admin-orders.js';
+
 export function createSupabaseStore(client, clock = () => new Date()) {
   const store = {
     async transaction(fn) {
@@ -338,6 +340,77 @@ export function createSupabaseStore(client, clock = () => new Date()) {
         .limit(100);
       if (error) throw error;
       return data || [];
+    },
+
+    async listRefillPollingOrders() {
+      const { data, error } = await client
+        .from('orders')
+        .select('*')
+        .not('provider_refill_id', 'is', null)
+        .in('provider_refill_status', ['requested', 'pending'])
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrders(query) {
+      const from = (Number(query.page) - 1) * Number(query.pageSize);
+      const to = from + Number(query.pageSize) - 1;
+      let builder = client.from('orders').select('*', { count: 'exact' });
+      builder = applySupabaseOrderFilters(builder, query);
+      const { data, error, count } = await builder.range(from, to);
+      if (error) throw error;
+      return { rows: data || [], total: Number(count || 0) };
+    },
+
+    async listOrderEvents(orderId) {
+      const { data, error } = await client
+        .from('order_events')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrderJobs(orderId) {
+      const { data, error } = await client
+        .from('jobs')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrderExternalRequests(orderId) {
+      const { data, error } = await client
+        .from('external_requests')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('attempted_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async appendOrderEvent({ orderId, actor, action, fromState, toState, reason }) {
+      const { data, error } = await client
+        .from('order_events')
+        .insert({
+          order_id: orderId,
+          actor: actor || 'admin',
+          action,
+          from_state: fromState || null,
+          to_state: toState || null,
+          reason: reason || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
 
     async listProducts() {
