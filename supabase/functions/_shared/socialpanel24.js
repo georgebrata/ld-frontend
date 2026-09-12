@@ -7,7 +7,7 @@
 
 export const SOCIALPANEL24_URL = 'https://socialpanel24.com/api/v2';
 
-const ALLOWED_ACTIONS = new Set(['services', 'add', 'status', 'balance']);
+const ALLOWED_ACTIONS = new Set(['services', 'add', 'status', 'balance', 'refill', 'refill_status']);
 
 export class SocialPanelError extends Error {
   /**
@@ -194,6 +194,44 @@ export async function fetchProviderStatuses(env, orderIds) {
  */
 export async function fetchProviderBalance(env) {
   return socialPanelRequest(env, 'balance');
+}
+
+/**
+ * @param {any} env
+ * @param {string} providerOrderId
+ */
+export async function requestProviderRefill(env, providerOrderId) {
+  const orderId = parseProviderOrderId(providerOrderId);
+  if (!orderId) {
+    throw new SocialPanelError('Refill requires a numeric provider order id', { code: 'INVALID_ACTION' });
+  }
+  const json = await socialPanelRequest(env, 'refill', { order: orderId });
+  const refillId = parseProviderOrderId(json?.refill ?? json?.order ?? json?.id);
+  if (!refillId) {
+    throw new SocialPanelError('SocialPanel24 accepted the HTTP request but returned no refill id', {
+      code: 'MALFORMED',
+      retryable: false,
+    });
+  }
+  return { refillId, raw: json };
+}
+
+/**
+ * Single-id refill_status. Mass `refills=` is not used — the public API shape for
+ * batches is not evidenced in this repo.
+ * @param {any} env
+ * @param {string[]} refillIds
+ */
+export async function fetchProviderRefillStatuses(env, refillIds) {
+  const ids = [...new Set(refillIds.map((id) => String(id).trim()).filter(Boolean))];
+  if (!ids.length) return {};
+  /** @type {Record<string, any>} */
+  const out = {};
+  for (const id of ids) {
+    const json = await socialPanelRequest(env, 'refill_status', { refill: id });
+    out[id] = json && typeof json === 'object' ? json : {};
+  }
+  return out;
 }
 
 /**

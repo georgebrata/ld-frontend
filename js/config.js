@@ -11,7 +11,8 @@
  *   FETCH_TIMEOUT_MS: number,
  *   EMAIL_MAX_LENGTH: number,
  *   ANALYTICS_ENABLED: boolean,
- *   ANALYTICS_CONSENT_KEY: string
+ *   ANALYTICS_CONSENT_KEY: string,
+ *   SUPPORT_EMAIL: string
  * }>}
  */
 export const CONFIG = Object.freeze({
@@ -25,6 +26,7 @@ export const CONFIG = Object.freeze({
   EMAIL_MAX_LENGTH: 254,
   ANALYTICS_ENABLED: false,
   ANALYTICS_CONSENT_KEY: 'ld.analyticsConsent',
+  SUPPORT_EMAIL: 'support@like-dealer.com',
 });
 
 /**

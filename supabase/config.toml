@@ -17,3 +17,33 @@ verify_jwt = false
 
 [functions.process-jobs]
 verify_jwt = false
+
+[functions.refresh-catalogue]
+verify_jwt = false
+
+[functions.health]
+verify_jwt = false
+
+[functions.operator]
+verify_jwt = false
+
+[functions.resend-webhook]
+verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+# Public GoTrue signup stays closed. The first admin is created by the admin
+# Edge Function (service role) while ADMIN_REGISTERED is true.
+[auth]
+site_url = "https://ld-frontend-phi.vercel.app"
+additional_redirect_urls = [
+  "https://ld-frontend-phi.vercel.app",
+  "https://ld-frontend-phi.vercel.app/**",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]
+enable_signup = false
+
+[auth.email]
+enable_signup = false

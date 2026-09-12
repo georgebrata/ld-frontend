@@ -85,7 +85,7 @@ export function normalizeNewlineList(value) {
   const normalized = String(value ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
-  const entries = normalized.split('\n').filter((line) => line.length > 0);
+  const entries = normalized.split('\n').filter((line) => line.trim().length > 0);
   return {
     text: entries.join('\n'),
     entries,

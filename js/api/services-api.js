@@ -22,19 +22,6 @@ function readBootstrap() {
   return null;
 }
 
-export function readBootstrapPhrases() {
-  if (typeof document === 'undefined') return null;
-  const el = document.getElementById('services-data');
-  if (!el) return null;
-  try {
-    const parsed = JSON.parse(el.textContent || '');
-    if (parsed && Array.isArray(parsed.phrases) && parsed.phrases.length) return parsed.phrases;
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 /**
  * Normalize a public catalogue / sheet row.
  * @param {Record<string, unknown>} row
@@ -57,7 +44,7 @@ export function normalizeService(row) {
     inputs: parseInputList(row.inputs ?? row.Inputs ?? ''),
     visible: listed,
     enabled,
-    purchasable: enabled && row.purchasable === true,
+    purchasable: row.purchasable == null ? Boolean(enabled && listed) : row.purchasable === true,
     quantityMin: row.quantityMin == null ? null : Number(row.quantityMin),
     quantityMax: row.quantityMax == null ? null : Number(row.quantityMax),
     quantityStep: row.quantityStep == null ? 1 : Number(row.quantityStep),
@@ -86,40 +73,51 @@ export function parseInputs(raw) {
   return parseInputList(raw);
 }
 
+function withStorefrontUrl(service) {
+  return toPublicService({
+    ...service,
+    url: service.url ?? `/${service.platform}/${service.slug}/`,
+  });
+}
+
 async function fetchLiveCatalogue() {
   const { response, json } = await invokeFunction('catalogue', { method: 'GET' });
   if (!response.ok || !json.ok || !Array.isArray(json.data)) {
     throw new Error('Invalid services response');
   }
-  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map((service) =>
-    toPublicService({
-      ...service,
-      url: service.url ?? `/${service.platform}/${service.slug}/`,
-    })
-  );
+  return assignServiceSlugs(json.data.map(normalizeService).filter((s) => s.visible)).map(withStorefrontUrl);
+}
+
+export function resetServicesCache() {
+  cache = null;
+}
+
+export function readEmbeddedServices() {
+  const boot = readBootstrap();
+  if (!boot || !boot.length) return [];
+  return assignServiceSlugs(boot.map((service) => toPublicService(normalizeService(service))));
 }
 
 export async function getServices(options = {}) {
   if (cache && !options.force) return cache;
 
-  if (!options.force) {
+  const embedded = readEmbeddedServices();
+  const canLive = Boolean(CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL);
+
+  if (canLive && !options.embeddedOnly) {
     try {
-      if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
-        cache = await fetchLiveCatalogue();
+      cache = await fetchLiveCatalogue();
+      return cache;
+    } catch {
+      if (embedded.length) {
+        cache = embedded;
         return cache;
       }
-    } catch {
-      /* fall through to bootstrap */
-    }
-    const boot = readBootstrap();
-    if (boot && boot.length) {
-      cache = assignServiceSlugs(boot.map((service) => toPublicService(normalizeService(service))));
-      return cache;
     }
   }
 
-  if (CONFIG.SUPABASE_URL || CONFIG.SUPABASE_FUNCTIONS_URL) {
-    cache = await fetchLiveCatalogue();
+  if (embedded.length) {
+    cache = embedded;
     return cache;
   }
 
@@ -167,5 +165,5 @@ export const servicesApi = {
   getServiceById,
   groupByPlatform,
   getUniquePlatforms,
-  readBootstrapPhrases,
+  resetServicesCache,
 };

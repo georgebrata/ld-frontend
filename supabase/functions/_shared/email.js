@@ -4,9 +4,11 @@
  */
 
 import { logError } from './log.js';
+import { fetchWithTimeout } from './http.js';
 
 const RESEND_URL = 'https://api.resend.com/emails';
 export const RESEND_IDEMPOTENCY_HOURS = 24;
+const RESEND_TIMEOUT_MS = 15000;
 
 /**
  * @param {object} env
@@ -20,22 +22,28 @@ export const RESEND_IDEMPOTENCY_HOURS = 24;
  * @param {typeof fetch} [fetchImpl]
  */
 export async function sendResendEmail(env, message, fetchImpl = fetch) {
-  const response = await fetchImpl(RESEND_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Idempotency-Key': message.idempotencyKey,
+  const timeoutMs = Number(env.RESEND_TIMEOUT_MS || RESEND_TIMEOUT_MS);
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    RESEND_URL,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': message.idempotencyKey,
+      },
+      body: JSON.stringify({
+        from: env.FROM_NAME ? `${env.FROM_NAME} <${env.FROM_EMAIL}>` : env.FROM_EMAIL,
+        to: [message.to],
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+        reply_to: env.REPLY_TO_EMAIL || env.FROM_EMAIL,
+      }),
     },
-    body: JSON.stringify({
-      from: env.FROM_NAME ? `${env.FROM_NAME} <${env.FROM_EMAIL}>` : env.FROM_EMAIL,
-      to: [message.to],
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-      reply_to: env.REPLY_TO_EMAIL || env.FROM_EMAIL,
-    }),
-  });
+    timeoutMs
+  );
 
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {

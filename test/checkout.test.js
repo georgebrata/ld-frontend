@@ -164,6 +164,38 @@ test('Stripe success URL uses the local storefront origin', async () => {
   assert.match(captured.stripeBody, /success_url=http%3A%2F%2F127\.0\.0\.1%3A8765%2Fsuccess/);
   assert.match(captured.stripeBody, /cancel_url=http%3A%2F%2F127\.0\.0\.1%3A8765%2Fcancel/);
   assert.equal(captured.stripeBody.includes('evil.example'), false);
+  assert.equal(captured.stripeBody.includes('integration_identifier'), false);
+});
+
+test('Stripe Checkout failures are retryable and do not become a 500', async () => {
+  RETAIL_CATALOGUE[0].socialpanelId = '11';
+  clearCatalogueMemory();
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    const body = String(init?.body || '');
+    if (href.includes('socialpanel24.com') && body.includes('action=services')) {
+      return { ok: true, text: async () => JSON.stringify(fixtures.services) };
+    }
+    if (href.includes('api.stripe.com/v1/checkout/sessions')) {
+      return { ok: false, json: async () => ({ error: { message: 'Unknown parameter' } }) };
+    }
+    return { ok: true, json: async () => ({}), text: async () => '{}' };
+  };
+  const result = await createGuestCheckout(
+    env(),
+    createMemoryStore(),
+    {
+      serviceId: '01',
+      quantity: 1000,
+      customerEmail: 'a@b.com',
+      checkoutAttemptId: '99999999-9999-4999-8999-999999999999',
+      capabilityToken: 'g'.repeat(43),
+      inputs: { url: 'https://instagram.com/p/x' },
+    },
+    { fetchImpl: globalThis.fetch }
+  );
+  assert.equal(result.status, 503);
+  assert.match(String(result.body.error), /try again/i);
 });
 
 test('status access requires the capability token hash', async () => {

@@ -54,16 +54,58 @@ const INPUT_REGISTRY = {
     hint: 'One group per line.',
   },
   email: {
-    label: 'Email',
+    label: 'Confirmation email',
     type: 'email',
     placeholder: 'you@example.com',
-    hint: 'We will send your payment receipt here.',
+    hint: 'We will send a confirmation here after your payment is confirmed.',
   },
   quantity: {
     label: 'Quantity',
     type: 'number',
     placeholder: '1000',
     hint: 'Choose how many you want. Limits are shown below.',
+  },
+  runs: {
+    label: 'Runs',
+    type: 'number',
+    placeholder: '2',
+    hint: 'How many times this order should run.',
+  },
+  interval: {
+    label: 'Interval (minutes)',
+    type: 'number',
+    placeholder: '60',
+    hint: 'Minutes between runs.',
+  },
+  country: {
+    label: 'Country',
+    type: 'text',
+    placeholder: 'US',
+    hint: 'Country for this traffic or audience.',
+  },
+  device: {
+    label: 'Device',
+    type: 'text',
+    placeholder: 'Mobile',
+    hint: 'Device type for this order.',
+  },
+  type_of_traffic: {
+    label: 'Traffic type',
+    type: 'text',
+    placeholder: 'Organic',
+    hint: 'Kind of traffic to send.',
+  },
+  google_keyword: {
+    label: 'Google keyword',
+    type: 'text',
+    placeholder: 'keyword',
+    hint: 'Search keyword for this order.',
+  },
+  referring_url: {
+    label: 'Referring URL',
+    type: 'url',
+    placeholder: 'https://…',
+    hint: 'Where this traffic should appear to come from.',
   },
 };
 
@@ -83,14 +125,17 @@ export function parseInputs(raw) {
 /**
  * @param {string} type
  * @param {HTMLElement} container
- * @param {{ min?: number, max?: number, step?: number, value?: number|string }} [options]
+ * @param {{ min?: number, max?: number, step?: number, value?: number|string, platform?: string, overrides?: { label?: string, placeholder?: string, hint?: string } }} [options]
  */
 export function renderInput(type, container, options = {}) {
   const canonical = canonicalInputName(type) || type;
-  const config = INPUT_REGISTRY[canonical] ?? {
-    label: canonical.charAt(0).toUpperCase() + canonical.slice(1),
-    type: 'text',
-    placeholder: '',
+  const config = {
+    ...(INPUT_REGISTRY[canonical] ?? {
+      label: canonical.charAt(0).toUpperCase() + canonical.slice(1),
+      type: 'text',
+      placeholder: '',
+    }),
+    ...(options.overrides || {}),
   };
 
   const field = createEl('div', { className: 'form-field', 'data-input-type': canonical });
@@ -148,7 +193,7 @@ export function renderInput(type, container, options = {}) {
  * @param {HTMLInputElement|HTMLTextAreaElement} input
  * @param {HTMLElement} field
  * @param {HTMLElement} errorEl
- * @param {{ min?: number, max?: number, platform?: string }} [options]
+ * @param {{ min?: number, max?: number, step?: number, platform?: string }} [options]
  */
 export function validateField(type, input, field, errorEl, options = {}) {
   const canonical = canonicalInputName(type) || type;

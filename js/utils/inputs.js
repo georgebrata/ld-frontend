@@ -14,6 +14,13 @@ const ALIASES = {
   hashtag: 'hashtag',
   media: 'media',
   groups: 'groups',
+  runs: 'runs',
+  interval: 'interval',
+  country: 'country',
+  device: 'device',
+  type_of_traffic: 'type_of_traffic',
+  google_keyword: 'google_keyword',
+  referring_url: 'referring_url',
 };
 
 /**
@@ -54,6 +61,6 @@ export function normalizeNewlineList(value) {
   const normalized = String(value ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
-  const entries = normalized.split('\n').filter((line) => line.length > 0);
+  const entries = normalized.split('\n').filter((line) => line.trim().length > 0);
   return { text: entries.join('\n'), entries, count: entries.length };
 }

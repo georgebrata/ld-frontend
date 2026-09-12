@@ -14,6 +14,13 @@ test('CORS allows localhost on any port for static servers', () => {
   assert.equal(pickAllowOrigin(req('https://like-dealer.com'), allow), 'https://like-dealer.com');
 });
 
+test('CORS allows the Vercel storefront even when the secret allowlist is stale', () => {
+  const allow = ['https://like-dealer.com'];
+  assert.equal(pickAllowOrigin(req('https://ld-frontend-phi.vercel.app'), allow), 'https://ld-frontend-phi.vercel.app');
+  assert.equal(pickAllowOrigin(req('https://ld-frontend-git-main.vercel.app'), allow), 'https://ld-frontend-git-main.vercel.app');
+  assert.equal(pickAllowOrigin(req('https://other-app.vercel.app'), allow), '');
+});
+
 test('Stripe return origin follows the capability-token storefront', () => {
   const env = { SITE_URL: 'https://like-dealer.com' };
   assert.equal(checkoutReturnOrigin(env, 'http://127.0.0.1:8765'), 'http://127.0.0.1:8765');

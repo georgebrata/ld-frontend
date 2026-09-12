@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin | Like Dealer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; upgrade-insecure-requests" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="icon" href="/favicon/safari-pinned-tab.svg" />
+</head>
+<body class="page-admin page-admin--auth" data-page="admin-login">
+  <main class="confirmation-wrapper">
+    <article class="confirmation-card">
+      <h1>Admin sign in</h1>
+      <p>Map storefront products to SocialPanel24 services.</p>
+      <form id="admin-login-form" class="admin-auth-form">
+        <label class="form-field">
+          <span>Email</span>
+          <input class="admin-input" type="email" name="email" autocomplete="username" required />
+        </label>
+        <label class="form-field">
+          <span>Password</span>
+          <input class="admin-input" type="password" name="password" autocomplete="current-password" required />
+        </label>
+        <p id="admin-status" class="checkout-status" aria-live="polite"></p>
+        <button class="btn" type="submit">Sign in</button>
+      </form>
+      <p id="admin-register-link" hidden><a href="/admin/register/">Create the first admin</a></p>
+    </article>
+  </main>
+  <script type="module" src="/js/admin/auth.js"></script>
+</body>
+</html>
