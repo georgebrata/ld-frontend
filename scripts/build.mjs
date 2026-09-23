@@ -357,7 +357,7 @@ function productJsonLd(service) {
     '@type': 'Product',
     name: service.label,
     description:
-      service.description || `Order ${service.label} from Like Dealer.`,
+      service.description || `Order ${service.label} from LikeDealer.`,
     url: `${SITE_URL}${service.url}`,
     offers: {
       '@type': 'Offer',
@@ -486,11 +486,11 @@ async function main() {
 
   const homeHtml = fill(shell, {
     ...shared,
-    TITLE: 'Like Dealer — Boost Your Socials',
+    TITLE: 'LikeDealer',
     CANONICAL: `${SITE_URL}/`,
     DESCRIPTION:
       'Discover our premium social media engagement service designed to skyrocket your reach, engagement, and credibility.',
-    OG_TITLE: 'Like Dealer — Boost Your Socials',
+    OG_TITLE: 'LikeDealer',
     THEME_COLOR: THEME_COLORS.home,
     RESOURCE_HINTS: resourceHints('home', { platforms }),
     BODY_CLASS: 'page-home',
@@ -509,10 +509,10 @@ async function main() {
 
     const platformHtml = fill(shell, {
       ...shared,
-      TITLE: `${platform.platformLabel} Services | Like Dealer`,
+      TITLE: `${platform.platformLabel} Services | LikeDealer`,
       CANONICAL: `${SITE_URL}/${platform.platform}/`,
-      DESCRIPTION: `Buy ${platform.platformLabel} likes, followers, and engagement. Premium services from Like Dealer.`,
-      OG_TITLE: `${platform.platformLabel} Services | Like Dealer`,
+      DESCRIPTION: `Buy ${platform.platformLabel} likes, followers, and engagement. Premium services from LikeDealer.`,
+      OG_TITLE: `${platform.platformLabel} Services | LikeDealer`,
       THEME_COLOR: THEME_COLORS[platform.platform] ?? THEME_COLORS.home,
       RESOURCE_HINTS: resourceHints('platform', { platform: platform.platform, services: filtered }),
       BODY_CLASS: `platform-${platform.platform}`,
@@ -529,11 +529,11 @@ async function main() {
       await mkdir(serviceDir, { recursive: true });
       const serviceHtml = fill(shell, {
         ...shared,
-        TITLE: `${service.label} | Like Dealer`,
+        TITLE: `${service.label} | LikeDealer`,
         CANONICAL: `${SITE_URL}${service.url}`,
         DESCRIPTION:
-          service.description || `Order ${service.label} from Like Dealer. Premium social media engagement.`,
-        OG_TITLE: `${service.label} | Like Dealer`,
+          service.description || `Order ${service.label} from LikeDealer. Premium social media engagement.`,
+        OG_TITLE: `${service.label} | LikeDealer`,
         THEME_COLOR: THEME_COLORS[service.platform] ?? THEME_COLORS.home,
         RESOURCE_HINTS: resourceHints('service', { platform: service.platform }),
         BODY_CLASS: `platform-${service.platform} page-service`,

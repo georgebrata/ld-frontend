@@ -90,7 +90,9 @@
     }
 
     function concealPage() {
-      /* Once ordering is revealed, keep it available for keyboard and assistive tech. */
+      if (!page) return;
+      page.classList.remove('is-revealed');
+      page.style.removeProperty('opacity');
     }
 
     function isMobileScene() {
