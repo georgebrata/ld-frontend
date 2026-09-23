@@ -18,6 +18,7 @@ Deno.serve(async (request) => {
       fetchImpl: fetch,
       cacheGet: (key) => ctx.store.cacheGet(key),
       cacheSet: (key, value, ttl) => ctx.store.cacheSet(key, value, ttl),
+      listProducts: () => ctx.store.listProducts(),
     });
     return json(payload, 200, headers);
   } catch {

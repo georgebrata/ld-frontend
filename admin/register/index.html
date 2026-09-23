@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Register admin | Like Dealer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; upgrade-insecure-requests" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Passion+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/variables.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="icon" href="/favicon/safari-pinned-tab.svg" />
+</head>
+<body class="page-admin page-admin--auth" data-page="admin-register">
+  <main class="confirmation-wrapper">
+    <article class="confirmation-card">
+      <div id="admin-register-open" hidden>
+        <h1>Create the first admin</h1>
+        <p>This form closes after the first account is created.</p>
+        <form id="admin-register-form" class="admin-auth-form">
+          <label class="form-field">
+            <span>Email</span>
+            <input class="admin-input" type="email" name="email" autocomplete="username" required />
+          </label>
+          <label class="form-field">
+            <span>Password (12+ characters)</span>
+            <input class="admin-input" type="password" name="password" autocomplete="new-password" minlength="12" required />
+          </label>
+          <label class="form-field">
+            <span>Confirm password</span>
+            <input class="admin-input" type="password" name="confirm" autocomplete="new-password" minlength="12" required />
+          </label>
+          <p id="admin-status" class="checkout-status" aria-live="polite"></p>
+          <button class="btn" type="submit">Register</button>
+        </form>
+      </div>
+      <div id="admin-register-closed" hidden>
+        <h1>Registration is closed</h1>
+        <p>An admin already exists, or registration is turned off.</p>
+        <p><a class="btn" href="/admin/">Sign in</a></p>
+      </div>
+    </article>
+  </main>
+  <script type="module" src="/js/admin/auth.js"></script>
+</body>
+</html>

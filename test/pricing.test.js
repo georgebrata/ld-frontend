@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { applyMarkup, convertMinor, parseDecimalToMinor, quoteTotalMinor, quoteVersion } from '../supabase/functions/_shared/money.js';
-import { findProviderService, quoteService } from '../supabase/functions/_shared/pricing.js';
+import { applyContributionFloor, findProviderService, quoteService } from '../supabase/functions/_shared/pricing.js';
 
 const fixtures = JSON.parse(
   readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/socialpanel24.json'), 'utf8')
@@ -97,4 +97,29 @@ test('quoteService uses provider min/max and comment count', () => {
   assert.equal(commentQuote.ok, true);
   assert.equal(commentQuote.billableQuantity, 2);
   assert.equal(commentQuote.amountMinor, 4000);
+});
+
+test('quantity step is enforced', () => {
+  const provider = findProviderService(fixtures.services, '11');
+  const stepped = quoteService({
+    retail: likes,
+    provider,
+    quantity: 150,
+    inputs: { url: 'https://instagram.com/p/x' },
+    retailCurrency: 'USD',
+    providerCurrency: 'USD',
+    fxProviderToRetail: 1,
+  });
+  assert.equal(stepped.ok, false);
+  assert.equal(stepped.code, 'quantity');
+});
+
+test('contribution floor does not rewrite sub-50-cent quotes', () => {
+  assert.equal(applyContributionFloor(4, 2, 30), 4);
+});
+
+test('contribution floor raises thin high-value quotes', () => {
+  const raised = applyContributionFloor(200, 180, 30);
+  assert.equal(raised > 200, true);
+  assert.equal(applyContributionFloor(180, 90, 30), 180);
 });

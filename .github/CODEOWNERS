@@ -1,0 +1,10 @@
+# Payment, fulfilment, and schema paths require human review before merge.
+# Assign a GitHub team or user to these paths in repository settings.
+/supabase/migrations/
+/supabase/functions/_shared/checkout.js
+/supabase/functions/_shared/webhook.js
+/supabase/functions/_shared/stripe.js
+/supabase/functions/_shared/fulfillment.js
+/supabase/functions/_shared/pricing.js
+/supabase/functions/stripe-webhook/
+/supabase/functions/create-checkout/

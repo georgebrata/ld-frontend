@@ -8,6 +8,24 @@ import { billableQuantityForType, getProviderType } from './provider-types.js';
 import { normalizeProviderService } from './socialpanel24.js';
 
 /**
+ * Raise the selling price when contribution would not cover an estimated Stripe
+ * fee plus a per-service floor. Sub-50¢ SKUs (comment micros) keep markup-only
+ * pricing because the 30¢ fixed fee would dominate them.
+ * @param {number} amountMinor
+ * @param {number} expectedProviderCostMinor
+ * @param {number} [minContributionMinor]
+ */
+export function applyContributionFloor(amountMinor, expectedProviderCostMinor, minContributionMinor = 0) {
+  const amount = Number(amountMinor);
+  const cost = Number(expectedProviderCostMinor);
+  const minC = Number.isInteger(minContributionMinor) && minContributionMinor > 0 ? minContributionMinor : 0;
+  if (!Number.isInteger(amount) || amount < 50 || !Number.isInteger(cost) || cost < 0) return amount;
+  const stripeFeeFloor = Math.ceil(amount * 0.029) + 30;
+  const needed = cost + minC + stripeFeeFloor;
+  return amount < needed ? needed : amount;
+}
+
+/**
  * @param {Array<Record<string, unknown>>} catalog
  * @param {string} socialpanelId
  */
@@ -72,6 +90,10 @@ export function quoteService(args) {
     if (billable > max) {
       return { ok: false, error: `Quantity cannot exceed ${max}.`, code: 'quantity' };
     }
+    const step = Number.isInteger(retail.quantityStep) && retail.quantityStep > 1 ? retail.quantityStep : 1;
+    if (step > 1 && billable % step !== 0) {
+      return { ok: false, error: `Quantity must increase in steps of ${step}.`, code: 'quantity' };
+    }
   }
 
   const runs = args.dripRuns && args.dripRuns > 1 ? args.dripRuns : 1;
@@ -114,6 +136,20 @@ export function quoteService(args) {
     return { ok: false, error: 'This service cannot be priced right now.', code: 'unpriced' };
   }
 
+  const expectedProviderCostMinor = quoteTotalMinor({
+    rateMinor: converted,
+    quantity: pricedQuantity,
+    rateUnit,
+    packageMinor: converted,
+  });
+  const minContributionMinor = Number.isInteger(retail.minContributionMinor)
+    ? retail.minContributionMinor
+    : Number.isInteger(args.minContributionMinor)
+      ? args.minContributionMinor
+      : 0;
+  amountMinor = applyContributionFloor(amountMinor, expectedProviderCostMinor, minContributionMinor);
+  const expectedContributionMinor = amountMinor - expectedProviderCostMinor;
+
   const quote = {
     ok: true,
     serviceId: retail.id,
@@ -130,6 +166,10 @@ export function quoteService(args) {
     quantityStep: retail.quantityStep,
     quantityDefault: retail.quantityDefault,
     markup,
+    expectedProviderCostMinor,
+    expectedContributionMinor,
+    minContributionMinor,
+    fxProviderToRetail: args.fxProviderToRetail,
     providerType: provider.type,
     providerServiceId: provider.service,
   };

@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Payment cancelled | Like Dealer</title>
+  <title>Checkout closed | Like Dealer</title>
   <link rel="canonical" href="https://like-dealer.com/cancel/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Your Like Dealer payment was cancelled. No charge was completed." />
+  <meta name="description" content="This Like Dealer checkout was closed. Payment has not been confirmed on this page." />
   <meta name="robots" content="noindex" />
-  <meta property="og:title" content="Payment cancelled | Like Dealer" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta property="og:title" content="Checkout closed | Like Dealer" />
   <meta property="og:site_name" content="Like Dealer" />
   <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,19 +19,20 @@
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/pages.css" />
   <link rel="icon" href="/favicon/safari-pinned-tab.svg" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; upgrade-insecure-requests" />
 </head>
 <body class="page-cancel" data-page="cancel">
   <div class="confirmation-wrapper">
-    <div class="confirmation-card confirmation-card--cancel">
-      <h1>Payment cancelled</h1>
-      <p>Payment was cancelled or abandoned. The order was not successfully paid.</p>
-      <p>You can return to the service and try again. If you think this is a mistake, contact support.</p>
+    <main class="confirmation-card confirmation-card--cancel">
+      <h1>Checkout closed</h1>
+      <p id="cancel-copy">Checkout was closed. We have not confirmed a successful payment yet.</p>
+      <p>You can return to the service and try again.</p>
       <div id="cancel-retry" class="confirmation-actions">
         <a class="btn" href="/">Return to services</a>
+        <a id="cancel-support" class="why-page-link" href="mailto:support@like-dealer.com">Contact support</a>
       </div>
-    </div>
+    </main>
   </div>
-  <script type="module" src="/js/app.js?v=20260908c"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>

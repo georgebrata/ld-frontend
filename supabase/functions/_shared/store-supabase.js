@@ -2,6 +2,8 @@
  * Supabase repository. All writes use the service-role client from Edge Functions.
  */
 
+import { applySupabaseOrderFilters } from './admin-orders.js';
+
 export function createSupabaseStore(client, clock = () => new Date()) {
   const store = {
     async transaction(fn) {
@@ -84,6 +86,7 @@ export function createSupabaseStore(client, clock = () => new Date()) {
         p_currency: args.currency,
         p_payment_intent_id: args.paymentIntentId || null,
         p_desired_payment: args.desiredPayment,
+        p_object_id: args.objectId || null,
       });
       if (error) throw error;
       return data;
@@ -169,6 +172,134 @@ export function createSupabaseStore(client, clock = () => new Date()) {
       return data;
     },
 
+    async updateJobPayload(id, payload) {
+      const { data: current, error: readError } = await client.from('jobs').select('payload').eq('id', id).single();
+      if (readError) throw readError;
+      const next = { ...(current?.payload || {}), ...payload };
+      const { data, error } = await client
+        .from('jobs')
+        .update({ payload: next, updated_at: clock().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async recordExternalAttempt(row) {
+      const { data, error } = await client
+        .from('external_requests')
+        .insert({
+          order_id: row.orderId || null,
+          job_id: row.jobId || null,
+          vendor: row.vendor,
+          action: row.action,
+          fingerprint: row.fingerprint || '',
+          idempotency_key: row.idempotencyKey || null,
+          attempted_at: row.attemptedAt || clock().toISOString(),
+          outcome: row.outcome || 'attempted',
+          external_ref: row.externalRef || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async purgeRateLimits() {
+      const cutoff = Math.floor(clock().getTime() / 1000) - 3600;
+      const { error } = await client.from('rate_limits').delete().lt('window_start', cutoff);
+      if (error) throw error;
+      return { purged: true };
+    },
+
+    async operationalSnapshot() {
+      const { data: jobRows } = await client.from('jobs').select('status');
+      const { data: orderRows } = await client.from('orders').select('payment_status, fulfillment_status');
+      const jobs = jobRows || [];
+      const orders = orderRows || [];
+      return {
+        jobsPending: jobs.filter((job) => job.status === 'pending').length,
+        jobsFailed: jobs.filter((job) => job.status === 'failed').length,
+        jobsLeased: jobs.filter((job) => job.status === 'leased').length,
+        unknownSubmissions: orders.filter((row) => row.fulfillment_status === 'submission_unknown').length,
+        deferredFulfillment: orders.filter((row) => row.fulfillment_status === 'deferred').length,
+        paidUnfulfilled: orders.filter(
+          (row) => row.payment_status === 'paid' && !['completed', 'skipped_test_mode'].includes(row.fulfillment_status)
+        ).length,
+      };
+    },
+
+    async getJobByExternalRef(ref) {
+      const { data, error } = await client.from('jobs').select('*').eq('external_ref', ref).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async getJobById(id) {
+      const { data, error } = await client.from('jobs').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async replayJob(id) {
+      const { data: current, error: readError } = await client.from('jobs').select('attempts').eq('id', id).maybeSingle();
+      if (readError) throw readError;
+      if (!current) return null;
+      const { data, error } = await client
+        .from('jobs')
+        .update({
+          status: 'pending',
+          next_retry_at: clock().toISOString(),
+          attempts: Math.max(0, Number(current.attempts || 1) - 1),
+          lease_until: null,
+          updated_at: clock().toISOString(),
+        })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async recordJobAttempt(row) {
+      const { data, error } = await client
+        .from('job_attempts')
+        .insert({
+          job_id: row.jobId || null,
+          order_id: row.orderId || null,
+          task: row.task || '',
+          attempt: row.attempt || 0,
+          outcome: row.outcome || 'claimed',
+          correlation_id: row.correlationId || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async insertOperatorAction(row) {
+      const { data, error } = await client
+        .from('operator_actions')
+        .upsert(
+          {
+            command: row.command,
+            payload: row.payload || {},
+            status: row.status,
+            actor: row.actor || null,
+            approver: row.approver || null,
+            idempotency_key: row.idempotencyKey,
+            executed_at: row.status === 'executed' ? clock().toISOString() : null,
+          },
+          { onConflict: 'idempotency_key' }
+        )
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
     async consumeRateLimit(bucket, key, limit, windowSec) {
       const { data, error } = await client.rpc('consume_rate_limit', {
         p_bucket: bucket,
@@ -184,6 +315,7 @@ export function createSupabaseStore(client, clock = () => new Date()) {
       const { data, error } = await client.from('catalogue_cache').select('*').eq('cache_key', key).maybeSingle();
       if (error) throw error;
       if (!data) return null;
+      if (data.expires_at && new Date(data.expires_at).getTime() < clock().getTime()) return null;
       return data.payload;
     },
 
@@ -204,7 +336,89 @@ export function createSupabaseStore(client, clock = () => new Date()) {
         .select('*')
         .eq('payment_status', 'paid')
         .not('provider_order_id', 'is', null)
-        .not('fulfillment_status', 'in', '(completed,failed,cancelled)');
+        .in('fulfillment_status', ['submitted', 'in_progress', 'dispatching'])
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listRefillPollingOrders() {
+      const { data, error } = await client
+        .from('orders')
+        .select('*')
+        .not('provider_refill_id', 'is', null)
+        .in('provider_refill_status', ['requested', 'pending'])
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrders(query) {
+      const from = (Number(query.page) - 1) * Number(query.pageSize);
+      const to = from + Number(query.pageSize) - 1;
+      let builder = client.from('orders').select('*', { count: 'exact' });
+      builder = applySupabaseOrderFilters(builder, query);
+      const { data, error, count } = await builder.range(from, to);
+      if (error) throw error;
+      return { rows: data || [], total: Number(count || 0) };
+    },
+
+    async listOrderEvents(orderId) {
+      const { data, error } = await client
+        .from('order_events')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrderJobs(orderId) {
+      const { data, error } = await client
+        .from('jobs')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async listOrderExternalRequests(orderId) {
+      const { data, error } = await client
+        .from('external_requests')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('attempted_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
+    async appendOrderEvent({ orderId, actor, action, fromState, toState, reason }) {
+      const { data, error } = await client
+        .from('order_events')
+        .insert({
+          order_id: orderId,
+          actor: actor || 'admin',
+          action,
+          from_state: fromState || null,
+          to_state: toState || null,
+          reason: reason || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async listProducts() {
+      const { data, error } = await client
+        .from('products')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('id', { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -218,6 +432,104 @@ export function createSupabaseStore(client, clock = () => new Date()) {
         if (row?.name && row?.value) extra[row.name] = String(row.value);
       });
       return extra;
+    },
+
+    async getAdminUser(userId) {
+      const { data, error } = await client.from('admin_users').select('*').eq('user_id', userId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async countAdmins() {
+      const { count, error } = await client
+        .from('admin_users')
+        .select('user_id', { count: 'exact', head: true })
+        .is('disabled_at', null);
+      if (error) throw error;
+      return Number(count || 0);
+    },
+
+    async insertAdminUser(row) {
+      const { data, error } = await client
+        .from('admin_users')
+        .insert({
+          user_id: row.user_id,
+          email: row.email,
+          role: row.role || 'admin',
+          disabled_at: row.disabled_at || null,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async getFlag(name) {
+      const { data, error } = await client.from('app_flags').select('*').eq('name', name).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async setFlag(name, enabled) {
+      const { data, error } = await client
+        .from('app_flags')
+        .upsert({ name, enabled: Boolean(enabled), updated_at: clock().toISOString() }, { onConflict: 'name' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async getProduct(id) {
+      const { data, error } = await client.from('products').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async upsertProduct(row) {
+      const { data, error } = await client.from('products').upsert(row, { onConflict: 'id' }).select('*').single();
+      if (error) throw error;
+      return data;
+    },
+
+    async deleteProduct(id) {
+      const { data, error } = await client.from('products').delete().eq('id', id).select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async bulkUpdateSortOrder(items) {
+      const updates = Array.isArray(items) ? items : [];
+      /** @type {any[]} */
+      const next = [];
+      for (const item of updates) {
+        const { data, error } = await client
+          .from('products')
+          .update({ sort_order: item.sort_order })
+          .eq('id', item.id)
+          .select('*')
+          .maybeSingle();
+        if (error) throw error;
+        if (data) next.push(data);
+      }
+      return next;
+    },
+
+    async insertProductAudit(row) {
+      const { data, error } = await client
+        .from('product_audit')
+        .insert({
+          actor_user_id: row.actor_user_id || null,
+          actor_email: row.actor_email || null,
+          action: row.action,
+          product_id: row.product_id || null,
+          before: row.before || null,
+          after: row.after || null,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
   };
 

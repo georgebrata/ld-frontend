@@ -94,5 +94,10 @@
       "remains": "10",
       "currency": "USD"
     }
-  }
+  },
+  "refillAccepted": { "refill": 99001 },
+  "refillRejected": { "error": "Refill is not available" },
+  "refillStatusPending": { "status": "Pending" },
+  "refillStatusCompleted": { "status": "Completed" },
+  "refillStatusRejected": { "status": "Rejected" }
 }

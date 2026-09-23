@@ -101,7 +101,7 @@ body.page-cancel {
 }
 
 .confirmation-card--cancel h1 {
-  color: var(--color-muted);
+  color: var(--color-card-text);
 }
 
 .confirmation-card--fail h1 {

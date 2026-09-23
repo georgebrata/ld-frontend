@@ -40,6 +40,8 @@ function nameMatchesService(retail, provider) {
       return /custom comment/.test(name) || /\bcomments?\b/.test(name);
     case 'subscribers':
       return /subscribers?/.test(name);
+    case 'saves':
+      return /\bsaves?\b/.test(name) && !/\blikes?\b/.test(name);
     default:
       return name.includes(retail.service.toLowerCase());
   }

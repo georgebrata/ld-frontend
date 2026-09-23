@@ -15,6 +15,7 @@ export const FULFILLMENT_STATES = Object.freeze([
   'submission_unknown',
   'blocked_balance',
   'skipped_test_mode',
+  'deferred',
   'review',
 ]);
 
@@ -67,7 +68,9 @@ export function publicUiState(order) {
   if (fulfillment === 'in_progress' || fulfillment === 'submitted' || fulfillment === 'dispatching') {
     return 'processing';
   }
-  if (fulfillment === 'not_started' || fulfillment === 'skipped_test_mode') return 'payment_received';
+  if (fulfillment === 'not_started' || fulfillment === 'skipped_test_mode' || fulfillment === 'deferred') {
+    return 'payment_received';
+  }
   if (fulfillment === 'submission_unknown' || fulfillment === 'review') return 'processing';
   return 'unknown';
 }

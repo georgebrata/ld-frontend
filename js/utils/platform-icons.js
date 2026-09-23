@@ -14,7 +14,7 @@ const knownIcons = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 export function getPlatformIconUrl(slug) {
   const normalized = toPlatformSlug(slug);
   if (knownIcons.has(normalized)) {
-    return assetPath(`assets/cardLogos/${normalized}.svg`);
+    return assetPath(`assets/icons/${normalized}.svg?v=20260909a`);
   }
   return null;
 }

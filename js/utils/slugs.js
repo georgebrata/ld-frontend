@@ -26,7 +26,7 @@ export function toServiceSlug(name) {
 
 /**
  * Assign unique per-platform slugs. Collisions append the service id.
- * @param {Array<{ id: string, platform: string, service: string }>} services
+ * @param {Array<{ id: string, platform: string, service: string, slug?: string }>} services
  * @returns {Array<{ id: string, platform: string, service: string, slug: string }>}
  */
 export function assignServiceSlugs(services) {
@@ -37,7 +37,8 @@ export function assignServiceSlugs(services) {
     const key = service.platform;
     if (!used.has(key)) used.set(key, new Set());
     const taken = used.get(key);
-    let slug = toServiceSlug(service.service);
+    const requested = service.slug ? toServiceSlug(service.slug) : '';
+    let slug = requested || toServiceSlug(service.service);
 
     if (taken.has(slug)) {
       const withId = toServiceSlug(`${service.service}-${service.id}`);

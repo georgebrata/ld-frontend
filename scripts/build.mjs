@@ -1,12 +1,15 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { cp, mkdir, readFile, readdir, rm, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RETAIL_CATALOGUE } from '../supabase/functions/_shared/retail-catalogue.js';
 import { parseInputList } from '../supabase/functions/_shared/inputs.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DIST = path.join(ROOT, 'dist');
 const SITE_URL = 'https://like-dealer.com';
-const TAGLINE = 'Boost your socials';
+const SLUG_PATTERN = /^[a-z][a-z0-9-]{0,47}$/;
+const RAW_FILL = new Set(['RESOURCE_HINTS', 'MENU', 'HERO_SVG', 'CATALOGUE', 'CONTENT', 'SERVICES_JSON', 'JSON_LD', 'BODY_ATTRS']);
 const KNOWN_ICONS = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 const THEME_COLORS = {
   home: '#52555b',
@@ -15,8 +18,6 @@ const THEME_COLORS = {
   youtube: '#ff0000',
   facebook: '#4c66a4',
 };
-const CARD_SVG_PATH =
-  'M604 0l12681 0c332,0 604,272 604,604l0 18237c0,332 -272,603 -604,603l-12681 0c-332,0 -604,-271 -604,-603l0 -18237c0,-332 272,-604 604,-604zm4546 1389l1100 0c0,-384 311,-695 695,-695 383,0 694,311 694,695l1100 0c222,0 404,182 404,405l0 0c0,223 -182,405 -404,405l-3589 0c-222,0 -405,-182 -405,-405l0 0c0,-223 183,-405 405,-405z';
 const STATIC_PLATFORM_FOLDERS = new Set(['instagram', 'tiktok', 'youtube', 'facebook']);
 
 /**
@@ -47,10 +48,15 @@ function isVisible(value) {
  * @returns {string}
  */
 function toPlatformSlug(platform) {
-  return String(platform ?? '')
+  const slug = String(platform ?? '')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '');
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!SLUG_PATTERN.test(slug)) {
+    throw new Error(`Invalid platform slug: ${platform}`);
+  }
+  return slug;
 }
 
 /**
@@ -63,6 +69,9 @@ function toServiceSlug(name) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+  if (!SLUG_PATTERN.test(slug || 'service')) {
+    throw new Error(`Invalid service slug: ${name}`);
+  }
   return slug || 'service';
 }
 
@@ -141,17 +150,13 @@ function formatCardPrice(service) {
   return 'Price at checkout';
 }
 
-function cardFrameSvg() {
-  return `<svg width="100%" height="100%" viewBox="0 0 13889 19444" style="fill:#fff" aria-hidden="true"><g><path class="svgcolor" d="${CARD_SVG_PATH}"></path></g></svg>`;
-}
-
 /**
  * @param {string} platform
  * @param {string} platformLabel
  */
 function platformIconHtml(platform, platformLabel) {
   if (KNOWN_ICONS.has(platform)) {
-    return `<img src="/assets/cardLogos/${platform}.svg" alt="${escapeHtml(platformLabel)} logo" width="70%" />`;
+    return `<img src="/assets/icons/${platform}.svg" alt="${escapeHtml(platformLabel)} logo" />`;
   }
   const initials = escapeHtml(platformLabel.trim().slice(0, 2).toUpperCase());
   return `<span class="platform-badge">${initials}</span>`;
@@ -163,11 +168,9 @@ function platformIconHtml(platform, platformLabel) {
 function renderHomeCards(platforms) {
   const cards = platforms
     .map(
-      (platform) => `<a class="home-card" href="/${platform.platform}/" aria-label="${escapeHtml(platform.platformLabel)} services">
-        <div class="home-card-front">
-          ${cardFrameSvg()}
-          <div class="home-card-logo">${platformIconHtml(platform.platform, platform.platformLabel)}</div>
-        </div>
+      (platform) => `<a class="choice-card choice-card--${escapeHtml(platform.platform)} home-card" href="/${platform.platform}/" aria-label="${escapeHtml(platform.platformLabel)} services">
+        <span class="choice-card__icon">${platformIconHtml(platform.platform, platform.platformLabel)}</span>
+        <span class="choice-card__title">${escapeHtml(platform.platformLabel)}</span>
       </a>`
     )
     .join('\n      ');
@@ -180,22 +183,11 @@ function renderHomeCards(platforms) {
 function renderServiceCards(services) {
   const cards = services
     .map((service) => {
-      const icon = KNOWN_ICONS.has(service.platform)
-        ? `<img src="/assets/cardLogos/${service.platform}.svg" alt="${escapeHtml(service.platformLabel)} logo" />`
-        : `<span class="platform-badge">${escapeHtml(service.platformLabel.trim().slice(0, 2).toUpperCase())}</span>`;
-      const desc = service.description
-        ? `<p class="service-card-desc">${escapeHtml(service.description)}</p>`
-        : '';
-      return `<a class="gcard service-card" href="${escapeHtml(service.url)}" aria-label="${escapeHtml(service.label)}">
-        <div class="gcard-front service-card-front">
-          ${cardFrameSvg()}
-          <div class="gcard-logo service-card-logo">
-            <div class="service-title gcard-value gcard-type service-card-type"><p>${escapeHtml(service.service)}</p></div>
-            ${icon}
-            ${desc}
-            <div class="service-title gcard-value service-card-value"><p>${escapeHtml(formatCardPrice(service))}</p></div>
-          </div>
-        </div>
+      const meta = service.description || formatCardPrice(service);
+      return `<a class="choice-card choice-card--${escapeHtml(service.platform)} service-card" href="${escapeHtml(service.url)}" aria-label="${escapeHtml(service.label)}">
+        <span class="choice-card__icon">${platformIconHtml(service.platform, service.platformLabel)}</span>
+        <span class="choice-card__title">${escapeHtml(service.service)}</span>
+        <span class="choice-card__meta">${escapeHtml(meta)}</span>
       </a>`;
     })
     .join('\n      ');
@@ -214,7 +206,7 @@ function renderServiceDetail(service) {
       <div class="service-detail__logo">${icon}</div>
       ${desc}
       <p class="service-detail__price">${escapeHtml(formatCardPrice(service))}</p>
-      <button type="button" class="btn" data-checkout-trigger>Order ${escapeHtml(service.label)}</button>
+      <p>JavaScript is required for secure Stripe checkout. <a href="mailto:support@like-dealer.com">Contact support</a> if you cannot enable it.</p>
     </article>`;
 }
 
@@ -225,7 +217,8 @@ function renderMenu(platforms) {
   const items = [
     ['/', 'Home'],
     ['/why/', 'Why'],
-    ...platforms.map((p) => [`/?platform=${p.platform}`, p.platformLabel]),
+    ...platforms.map((p) => [`/${p.platform}/`, p.platformLabel === 'Youtube' ? 'YouTube' : p.platformLabel]),
+    ['/legal/terms/', 'Terms'],
   ];
   return items
     .map(([href, label]) => `<li><a href="${href}" class="menu">${escapeHtml(label)}</a></li>`)
@@ -239,32 +232,10 @@ function renderMenu(platforms) {
 function resourceHints(type, opts) {
   /** @type {string[]} */
   const links = [];
-
-  if (type === 'home') {
-    for (const platform of opts.platforms ?? []) {
-      links.push(`<link rel="prefetch" href="/${platform.platform}/" />`);
-      if (KNOWN_ICONS.has(platform.platform)) {
-        links.push(`<link rel="prefetch" href="/assets/cardLogos/${platform.platform}.svg" as="image" />`);
-      }
-    }
+  const platform = opts.platform || opts.platforms?.[0]?.platform;
+  if (platform && KNOWN_ICONS.has(platform)) {
+    links.push(`<link rel="prefetch" href="/assets/icons/${platform}.svg" as="image" />`);
   }
-
-  if (type === 'platform' && opts.platform) {
-    if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/cardLogos/${opts.platform}.svg" as="image" />`);
-    }
-    for (const service of (opts.services ?? []).filter((s) => s.platform === opts.platform)) {
-      links.push(`<link rel="prefetch" href="${escapeHtml(service.url)}" />`);
-    }
-  }
-
-  if (type === 'service' && opts.platform) {
-    links.push(`<link rel="prefetch" href="/${opts.platform}/" />`);
-    if (KNOWN_ICONS.has(opts.platform)) {
-      links.push(`<link rel="prefetch" href="/assets/cardLogos/${opts.platform}.svg" as="image" />`);
-    }
-  }
-
   return links.join('\n  ');
 }
 
@@ -273,25 +244,52 @@ function resourceHints(type, opts) {
  * @param {Record<string, string>} values
  */
 function fill(template, values) {
-  return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) =>
-    Object.prototype.hasOwnProperty.call(values, key) ? values[key] : ''
-  );
+  return template.replace(/\{\{([A-Z_]+)\}\}/g, (_, key) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return '';
+    const value = values[key] == null ? '' : String(values[key]);
+    return RAW_FILL.has(key) ? value : escapeHtml(value);
+  });
+}
+
+function assertInside(root, target) {
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(target);
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+    throw new Error(`Refusing to write outside ${resolvedRoot}: ${resolved}`);
+  }
+}
+
+async function assetVersion() {
+  const hash = createHash('sha256');
+  const files = ['js/app.js', 'js/ui/scene.js', 'js/order/one-page.js', 'js/checkout/checkout-form.js', 'css/base.css'];
+  for (const file of files) {
+    hash.update(await readFile(path.join(ROOT, file)));
+  }
+  return hash.digest('hex').slice(0, 10);
 }
 
 async function fetchServices() {
   const sheetUrl = process.env.RETAIL_CATALOGUE_URL;
-  if (sheetUrl) {
+  const strict = process.env.BUILD_STRICT === '1' || process.env.CI === 'true';
+  if (sheetUrl && process.env.BUILD_OFFLINE !== '1') {
     try {
-      const response = await fetch(sheetUrl);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(sheetUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      const length = Number(response.headers.get('content-length') || 0);
+      if (length > 1_000_000) throw new Error('Remote catalogue is too large');
       if (response.ok) {
         const json = await response.json();
         const { adaptSheetCatalogue } = await import('../supabase/functions/_shared/retail-adapter.js');
         const adapted = adaptSheetCatalogue(json);
         if (adapted.length) {
-          return assignServiceSlugs(adapted.filter((s) => s.visible && s.platform));
+          return assignServiceSlugs(adapted.filter((s) => s.visible && s.platform && s.socialpanelId));
         }
       }
+      if (strict) throw new Error(`Retail catalogue URL failed: HTTP ${response.status}`);
     } catch (err) {
+      if (strict) throw err;
       console.warn('Retail catalogue URL failed, using bundled catalogue', err instanceof Error ? err.message : err);
     }
   }
@@ -299,7 +297,8 @@ async function fetchServices() {
   return assignServiceSlugs(
     RETAIL_CATALOGUE.filter((s) => s.visible && s.platform).map((row) => ({
       ...row,
-      label: `${row.platformLabel} ${row.service}`.trim(),
+      platformLabel: row.platformLabel === 'Youtube' ? 'YouTube' : row.platformLabel,
+      label: `${row.platformLabel === 'Youtube' ? 'YouTube' : row.platformLabel} ${row.service}`.trim(),
       price: null,
       url: `/${row.platform}/${row.service.toLowerCase()}/`,
     }))
@@ -324,29 +323,29 @@ function uniquePlatforms(services) {
 }
 
 function snapshotJson(services) {
-  const phrases = [TAGLINE, ...services.map((s) => s.label).filter(Boolean)];
   const publicServices = services.map(({ socialpanelId, ...service }) => ({
     ...service,
-    purchasable: false,
-    enabled: Boolean(service.visible),
+    purchasable: Boolean(socialpanelId),
+    enabled: Boolean(service.visible) && Boolean(socialpanelId),
   }));
-  return JSON.stringify({ services: publicServices, phrases }).replace(/</g, '\\u003c');
+  return JSON.stringify({ services: publicServices }).replace(/</g, '\\u003c');
 }
 
-const TRUST_COPY = `<h2>What LikeDealer is</h2>
-      <p>LikeDealer is a simple way to buy social-media engagement. You do not need an account. Pick a platform, choose a service, and pay once.</p>
-      <h2>How this page works</h2>
+const TRUST_COPY = `<h2>Don't post into a quiet room.</h2>
+      <p>A post with three likes looks unfinished. A profile with eighty followers looks like nobody showed up. LikeDealer is how you buy the opening crowd — likes, followers, comments, saves — so the next person who lands on your content sees momentum instead of crickets. No account. One payment. You keep your passwords.</p>
+      <h2>Three moves. Then it starts.</h2>
       <ol>
-        <li>Choose a platform</li>
-        <li>Choose a service</li>
-        <li>Enter the required details and pay securely with Stripe</li>
+        <li>Pick a platform</li>
+        <li>Pick the signal you want</li>
+        <li>Drop your link and pay once with Stripe</li>
       </ol>
-      <h2>Pricing</h2>
-      <p>Any price shown on a card is guidance. The amount you pay is calculated on the server at checkout and confirmed by Stripe.</p>
-      <h2>Secure payment</h2>
-      <p>Payments are processed by Stripe. LikeDealer never sees your card number. We never ask for social-media passwords.</p>
-      <h2>After you pay</h2>
-      <p>Paid orders are submitted to the fulfilment provider automatically. Reaching the success page is not required for that work, and it is not proof that delivery is finished. Refunds are handled by support after review — a provider cancellation does not itself refund Stripe.</p>`;
+      <h2>The price you confirm is the price you pay</h2>
+      <p>Card prices are a preview. The real total is calculated on our server at checkout and locked in by Stripe before you pay — no surprise add-ons after you confirm.</p>
+      <h2>Your login stays yours</h2>
+      <p>We never ask for a social-media password. Stripe handles the card. LikeDealer never sees the number.</p>
+      <h2>Pay once. We start the work.</h2>
+      <p>A paid order is sent to fulfilment automatically — you do not have to sit on the success page, and landing there is not proof that delivery is finished. Timing depends on the provider and is not guaranteed here. If something goes wrong, support reviews the paid order; a provider cancellation does not refund Stripe by itself.</p>
+      <p class="content--why-link"><a class="why-page-link" href="/why/">Why this works →</a></p>`;
 
 /**
  * @param {{ label: string, description: string, price: number|null, url: string }} service
@@ -379,11 +378,13 @@ function writeSitemap(platforms, services) {
       changefreq: 'weekly',
       priority: '0.9',
     })),
-    ...services.map((s) => ({
-      loc: `${SITE_URL}${s.url}`,
-      changefreq: 'weekly',
-      priority: '0.7',
-    })),
+    ...services
+      .filter((s) => s.socialpanelId)
+      .map((s) => ({
+        loc: `${SITE_URL}${s.url}`,
+        changefreq: 'weekly',
+        priority: '0.7',
+      })),
   ];
 
   const body = urls
@@ -422,10 +423,46 @@ async function removeStaleServiceDirs(dir, keep) {
   );
 }
 
+async function copyStatic(version) {
+  const dirs = ['css', 'js', 'assets', 'favicon', 'why', 'success', 'cancel', 'legal', 'admin'];
+  for (const dir of dirs) {
+    const from = path.join(ROOT, dir);
+    try {
+      await stat(from);
+    } catch {
+      continue;
+    }
+    await cp(from, path.join(DIST, dir), { recursive: true });
+  }
+  for (const file of ['404.html', 'confirmation.html', 'robots.txt', '_headers']) {
+    const from = path.join(ROOT, file);
+    try {
+      await stat(from);
+      await cp(from, path.join(DIST, file));
+    } catch {
+      /* optional */
+    }
+  }
+  const bust = `v=${version}`;
+  for (const rel of ['success/index.html', 'cancel/index.html']) {
+    const target = path.join(DIST, rel);
+    try {
+      const html = await readFile(target, 'utf8');
+      await writeFile(target, html.replace(/app\.js\?v=[^"']+/g, `app.js?${bust}`));
+    } catch {
+      /* optional */
+    }
+  }
+}
+
 async function main() {
-  const [shell, heroSvg] = await Promise.all([
+  await rm(DIST, { recursive: true, force: true });
+  await mkdir(DIST, { recursive: true });
+
+  const [shell, heroSvg, version] = await Promise.all([
     readFile(path.join(ROOT, 'templates/shell.html'), 'utf8'),
     readFile(path.join(ROOT, 'templates/hero.svg'), 'utf8'),
+    assetVersion(),
   ]);
 
   const services = await fetchServices();
@@ -433,13 +470,22 @@ async function main() {
   const menu = renderMenu(platforms);
   const json = snapshotJson(services);
 
-  await mkdir(path.join(ROOT, 'data'), { recursive: true });
+  await mkdir(path.join(DIST, 'data'), { recursive: true });
   await writeFile(
-    path.join(ROOT, 'data/services.json'),
+    path.join(DIST, 'data/services.json'),
     `${JSON.stringify({ services: services.map(({ socialpanelId, ...service }) => service) }, null, 2)}\n`
   );
 
+  const shared = {
+    MENU: menu,
+    HERO_SVG: heroSvg.trim(),
+    CONTENT: TRUST_COPY,
+    SERVICES_JSON: json,
+    ASSET_VERSION: version,
+  };
+
   const homeHtml = fill(shell, {
+    ...shared,
     TITLE: 'Like Dealer — Boost Your Socials',
     CANONICAL: `${SITE_URL}/`,
     DESCRIPTION:
@@ -449,24 +495,20 @@ async function main() {
     RESOURCE_HINTS: resourceHints('home', { platforms }),
     BODY_CLASS: 'page-home',
     BODY_ATTRS: 'data-page="home"',
-    MENU: menu,
-    HERO_SVG: heroSvg.trim(),
     PAGE_TITLE: 'Boost your socials',
     CATALOGUE: `<noscript>${renderHomeCards(platforms)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
-    CONTENT: TRUST_COPY,
-    SERVICES_JSON: json,
     JSON_LD: '',
   });
-  await writeFile(path.join(ROOT, 'index.html'), homeHtml);
-
-  const generatedPlatforms = new Set(platforms.map((p) => p.platform));
+  await writeFile(path.join(DIST, 'index.html'), homeHtml);
 
   for (const platform of platforms) {
     const filtered = services.filter((s) => s.platform === platform.platform);
-    const platformDir = path.join(ROOT, platform.platform);
+    const platformDir = path.join(DIST, platform.platform);
+    assertInside(DIST, platformDir);
     await mkdir(platformDir, { recursive: true });
 
     const platformHtml = fill(shell, {
+      ...shared,
       TITLE: `${platform.platformLabel} Services | Like Dealer`,
       CANONICAL: `${SITE_URL}/${platform.platform}/`,
       DESCRIPTION: `Buy ${platform.platformLabel} likes, followers, and engagement. Premium services from Like Dealer.`,
@@ -475,56 +517,52 @@ async function main() {
       RESOURCE_HINTS: resourceHints('platform', { platform: platform.platform, services: filtered }),
       BODY_CLASS: `platform-${platform.platform}`,
       BODY_ATTRS: `data-page="platform" data-platform="${escapeHtml(platform.platform)}"`,
-      MENU: menu,
-      HERO_SVG: heroSvg.trim(),
       PAGE_TITLE: `${platform.platformLabel} services`,
       CATALOGUE: `<noscript>${renderServiceCards(filtered)}</noscript><div class="catalogue-state"><p>Loading services…</p></div>`,
-      CONTENT: TRUST_COPY,
-      SERVICES_JSON: json,
       JSON_LD: '',
     });
     await writeFile(path.join(platformDir, 'index.html'), platformHtml);
 
-    const slugs = new Set(filtered.map((s) => s.slug));
-    await removeStaleServiceDirs(platformDir, slugs);
-
     for (const service of filtered) {
       const serviceDir = path.join(platformDir, service.slug);
+      assertInside(platformDir, serviceDir);
       await mkdir(serviceDir, { recursive: true });
       const serviceHtml = fill(shell, {
+        ...shared,
         TITLE: `${service.label} | Like Dealer`,
         CANONICAL: `${SITE_URL}${service.url}`,
         DESCRIPTION:
-          service.description ||
-          `Order ${service.label} from Like Dealer. Premium social media engagement.`,
+          service.description || `Order ${service.label} from Like Dealer. Premium social media engagement.`,
         OG_TITLE: `${service.label} | Like Dealer`,
         THEME_COLOR: THEME_COLORS[service.platform] ?? THEME_COLORS.home,
         RESOURCE_HINTS: resourceHints('service', { platform: service.platform }),
         BODY_CLASS: `platform-${service.platform} page-service`,
         BODY_ATTRS: `data-page="service" data-platform="${escapeHtml(service.platform)}" data-service-id="${escapeHtml(service.id)}"`,
-        MENU: menu,
-        HERO_SVG: heroSvg.trim(),
         PAGE_TITLE: service.label,
         CATALOGUE: `<noscript>${renderServiceDetail(service)}</noscript><div class="catalogue-state"><p>Loading checkout…</p></div>`,
-        CONTENT: TRUST_COPY,
-        SERVICES_JSON: json,
         JSON_LD: productJsonLd(service),
       });
       await writeFile(path.join(serviceDir, 'index.html'), serviceHtml);
     }
   }
 
-  for (const folder of STATIC_PLATFORM_FOLDERS) {
-    if (!generatedPlatforms.has(folder)) {
-      await rm(path.join(ROOT, folder), { recursive: true, force: true });
-    }
+  await writeFile(path.join(DIST, 'sitemap.xml'), writeSitemap(platforms, services));
+  await copyStatic(version);
+
+  if (process.env.BUILD_CHECK === '1') {
+    const home = await readFile(path.join(DIST, 'index.html'), 'utf8');
+    if (!home.includes('data-page="home"')) throw new Error('build check failed: home page');
+    if (home.includes('cdn.jsdelivr.net')) throw new Error('build check failed: jsDelivr in dist');
+    const headers = await readFile(path.join(DIST, '_headers'), 'utf8');
+    if (!headers.includes('X-Content-Type-Options')) throw new Error('build check failed: _headers');
+    const admin = await readFile(path.join(DIST, 'admin/index.html'), 'utf8');
+    if (!admin.includes('data-page="admin-login"')) throw new Error('build check failed: admin page');
+    if (admin.includes('socialpanelId')) throw new Error('build check failed: socialpanelId in admin html');
+    const orders = await readFile(path.join(DIST, 'admin/orders/index.html'), 'utf8');
+    if (!orders.includes('data-page="admin-orders"')) throw new Error('build check failed: admin orders page');
   }
 
-  await writeFile(path.join(ROOT, 'sitemap.xml'), writeSitemap(platforms, services));
-
-  console.log(
-    `Built home, ${platforms.length} platform page(s), and ${services.length} service page(s).`
-  );
+  console.log(`Built dist/ with ${platforms.length} platform page(s) and ${services.length} service page(s).`);
 }
 
 main().catch((err) => {

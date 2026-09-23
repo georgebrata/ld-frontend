@@ -9,7 +9,7 @@ Storefront rows and SocialPanel24 stay in separate modules:
 
 Sheet-compatible GET body: `{ ok: true, data: [...] }` with `ID`, `Platform`, `Service`, `Description`, `Price`, comma-separated `Inputs`, `Visible`, `socialpanelId`, plus lowercase aliases. `commentsList` becomes canonical `comments`.
 
-Optional remote sheet JSON: env `RETAIL_CATALOGUE_URL`. Otherwise the bundled retail catalogue is used.
+Retail rows load from `public.products` when the store can list them. Optional remote sheet JSON: env `RETAIL_CATALOGUE_URL`. Otherwise the bundled retail catalogue is used. `catalogue_cache` remains a TTL blob (`catalogue:public`, `sp24:services`), not the product list.
 
 Optional `RETAIL_SOCIALPANEL_IDS` JSON (`{"01":"123","02":"456"}`) overlays provider ids onto those rows so mapping can be stored in `app_secrets` without editing `retail-catalogue.js`.
 
@@ -22,9 +22,10 @@ Internal model: id, platform, type, label, description, enabled, inputs, min/max
 ## Cache
 
 - Memory TTL: 5 minutes (`CATALOGUE_TTL_MS`)
-- Provider fetch timeout: 8 seconds (`SOCIALPANEL24_TIMEOUT_MS` / `CATALOGUE_TIMEOUT_MS`)
+- Provider fetch timeout: 8 seconds on request (`SOCIALPANEL24_TIMEOUT_MS` / `CATALOGUE_TIMEOUT_MS`); the daily refresh allows 20 seconds
 - On provider failure, serve stale cache up to 1 hour (`CATALOGUE_STALE_MS`). A missing API key is not cached durably, so adding `SOCIALPANEL24_API_KEY` / `RETAIL_SOCIALPANEL_IDS` can take effect within 30 seconds.
-- Optional `catalogue_cache` table via the store
+- `catalogue_cache` stores TTL blobs (`catalogue:public`, `sp24:services`), not the product list
+- Daily pg_cron job `ld-refresh-catalogue` (`0 6 * * *` UTC) POSTs `refresh-catalogue` with `WORKER_SECRET`. That force-fetches SocialPanel24 `action=services`, writes `sp24:services` (24-hour TTL), deletes `catalogue:public`, and warms `GET /catalogue` so the joined storefront cache is rebuilt from curated `public.products`. It does not insert new storefront products. A failed or empty provider list leaves the previous provider cache in place.
 
 ## Frontend
 

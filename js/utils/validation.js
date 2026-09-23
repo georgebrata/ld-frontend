@@ -11,7 +11,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Validate a single input value by canonical type.
  * @param {string} type
  * @param {string} value
- * @param {{ min?: number, max?: number, platform?: string }} [options]
+ * @param {{ min?: number, max?: number, step?: number, platform?: string }} [options]
  * @returns {ValidationResult}
  */
 export function validateInput(type, value, options = {}) {
@@ -65,6 +65,10 @@ export function validateInput(type, value, options = {}) {
       }
       if (num > max) {
         return { valid: false, message: `Quantity cannot exceed ${max.toLocaleString('en-US')}.` };
+      }
+      const step = Number.isInteger(options.step) && options.step > 1 ? options.step : 1;
+      if (step > 1 && num % step !== 0) {
+        return { valid: false, message: `Quantity must increase in steps of ${step.toLocaleString('en-US')}.` };
       }
       return { valid: true };
     }

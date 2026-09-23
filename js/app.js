@@ -1,29 +1,24 @@
-import { initTypedIntro } from './components/typed-intro.js';
-import { initOnePageOrder } from './order/one-page.js';
-import { initSuccessPage } from './pages/success-page.js';
-import { initCancelPage } from './pages/cancel-page.js';
-
 function init() {
-  initTypedIntro();
-
   const pageType = document.body.dataset.page;
   const orderPages = new Set(['home', 'platform', 'service']);
 
   if (orderPages.has(pageType)) {
-    initOnePageOrder({
-      platform: document.body.dataset.platform,
-      serviceId: document.body.dataset.serviceId,
+    import('./order/one-page.js').then(({ initOnePageOrder }) => {
+      initOnePageOrder({
+        platform: document.body.dataset.platform,
+        serviceId: document.body.dataset.serviceId,
+      });
     });
     return;
   }
 
   if (pageType === 'success') {
-    initSuccessPage();
+    import('./pages/success-page.js').then(({ initSuccessPage }) => initSuccessPage());
     return;
   }
 
   if (pageType === 'cancel') {
-    initCancelPage();
+    import('./pages/cancel-page.js').then(({ initCancelPage }) => initCancelPage());
   }
 }
 

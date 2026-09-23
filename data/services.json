@@ -55,7 +55,7 @@
         "comments"
       ],
       "visible": true,
-      "rateUnit": "per_comment",
+      "rateUnit": "per_1000",
       "retailCurrency": "USD",
       "markupMultiplier": 2,
       "quantityStep": 1,
@@ -132,6 +132,28 @@
       "price": null,
       "url": "/youtube/subscribers/",
       "slug": "subscribers"
+    },
+    {
+      "id": "07",
+      "platform": "instagram",
+      "platformLabel": "Instagram",
+      "service": "Saves",
+      "description": "",
+      "inputs": [
+        "url"
+      ],
+      "visible": true,
+      "rateUnit": "per_1000",
+      "retailCurrency": "USD",
+      "markupMultiplier": 2,
+      "quantityStep": 100,
+      "quantityDefault": 1000,
+      "packagePriceMinor": null,
+      "dripEnabled": false,
+      "label": "Instagram Saves",
+      "price": null,
+      "url": "/instagram/saves/",
+      "slug": "saves"
     }
   ]
 }

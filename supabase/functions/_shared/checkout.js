@@ -7,7 +7,7 @@ import { getInternalService, getProviderCatalog, pricingEnv } from './catalogue.
 import { findProviderService, quoteService } from './pricing.js';
 import { serializeProviderAdd } from './provider-types.js';
 import { validateCheckoutBody } from './validate.js';
-import { createCheckoutSession, expireCheckoutSession, retrieveCheckoutSession } from './stripe.js';
+import { createCheckoutSession, expireCheckoutSession, retrieveCheckoutSessionResult, stripeIntegrationIdentifier } from './stripe.js';
 import { formatDisplayId } from './states.js';
 
 function paramsFingerprint(parsed, quote) {
@@ -36,7 +36,22 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
   if (!parsed.ok) return { status: 400, body: { error: parsed.error } };
 
   const tokenHash = await hashCapabilityToken(parsed.capabilityToken);
-  const internal = await getInternalService(env, parsed.serviceId, deps);
+  const catalogueDeps = {
+    ...deps,
+    listProducts:
+      deps.listProducts ||
+      (typeof store.listProducts === 'function' ? () => store.listProducts() : undefined),
+    cacheGet: deps.cacheGet || (typeof store.cacheGet === 'function' ? (key) => store.cacheGet(key) : undefined),
+    cacheSet:
+      deps.cacheSet || (typeof store.cacheSet === 'function' ? (key, value, ttl) => store.cacheSet(key, value, ttl) : undefined),
+  };
+  if (catalogueDeps.cacheGet) {
+    const paused = await catalogueDeps.cacheGet('ops:catalogue_paused');
+    if (paused && paused.paused === true) {
+      return { status: 409, body: { error: 'That service is not available to purchase right now.' } };
+    }
+  }
+  const internal = await getInternalService(env, parsed.serviceId, catalogueDeps);
   if (!internal || !internal.purchasable) {
     return { status: 409, body: { error: 'That service is not available to purchase right now.' } };
   }
@@ -45,7 +60,7 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
   if (!checked.ok) return { status: 400, body: { error: checked.error } };
 
   const money = pricingEnv(env);
-  const providerCatalog = await getProviderCatalog(env, deps);
+  const providerCatalog = await getProviderCatalog(env, catalogueDeps);
   const provider = findProviderService(providerCatalog, internal.socialpanelId);
   const quote = quoteService({
     retail: {
@@ -58,6 +73,7 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
       quantityStep: internal.quantityStep,
       quantityDefault: internal.quantityDefault,
       packagePriceMinor: internal.packagePriceMinor,
+      minContributionMinor: internal.minContributionMinor,
     },
     provider,
     quantity: checked.quantity,
@@ -126,7 +142,11 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
       return { status: 409, body: { error: 'This checkout attempt was started with different details. Start again.' } };
     }
     if (existing.stripe_session_id) {
-      const session = await retrieveCheckoutSession(env, existing.stripe_session_id, deps.fetchImpl);
+      const retrieved = await retrieveCheckoutSessionResult(env, existing.stripe_session_id, deps.fetchImpl);
+      if (retrieved.error) {
+        return { status: 503, body: { error: 'Could not verify the existing payment session. Try again in a moment.' } };
+      }
+      const session = retrieved.session;
       const open = session && ['open', 'unpaid'].includes(String(session.status)) && session.url;
       if (open && session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
         if (session.status === 'open') {
@@ -182,10 +202,17 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
     fulfillment_status: 'not_started',
     checkout_revision: revision,
     params_fingerprint: fingerprint,
+    expected_provider_cost_minor: quote.expectedProviderCostMinor ?? null,
+    expected_contribution_minor: quote.expectedContributionMinor ?? null,
+    fx_provider_to_retail: quote.fxProviderToRetail ?? null,
+    min_contribution_minor: quote.minContributionMinor ?? null,
   };
 
+  const integrationIdentifier =
+    existing?.stripe_integration_identifier || (await stripeIntegrationIdentifier(checked.checkoutAttemptId, revision));
+
   if (!existing) {
-    await store.insertOrder(record);
+    await store.insertOrder({ ...record, stripe_integration_identifier: integrationIdentifier });
   } else {
     await store.updateOrder(orderId, {
       quantity: record.quantity,
@@ -195,26 +222,38 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
       provider_payload: record.provider_payload,
       inputs: record.inputs,
       checkout_revision: revision,
+      expected_provider_cost_minor: record.expected_provider_cost_minor,
+      expected_contribution_minor: record.expected_contribution_minor,
+      stripe_integration_identifier: existing.stripe_integration_identifier || integrationIdentifier,
     });
   }
 
-  const session = await createCheckoutSession(
-    env,
-    {
-      id: orderId,
-      email: checked.customerEmail,
-      checkoutAttemptId: checked.checkoutAttemptId,
-      serviceId: internal.id,
-      serviceLabel: internal.label,
-      storefrontOrigin: deps.storefrontOrigin || '',
-    },
-    {
-      amountMinor: quote.amountMinor,
-      currency: quote.currency,
-      idempotencyKey: `ld-checkout-${checked.checkoutAttemptId}-r${revision}`,
-    },
-    deps.fetchImpl
-  );
+  let session;
+  try {
+    session = await createCheckoutSession(
+      env,
+      {
+        id: orderId,
+        email: checked.customerEmail,
+        checkoutAttemptId: checked.checkoutAttemptId,
+        serviceId: internal.id,
+        serviceLabel: internal.label,
+        storefrontOrigin: deps.storefrontOrigin || '',
+      },
+      {
+        amountMinor: quote.amountMinor,
+        currency: quote.currency,
+        idempotencyKey: `ld-checkout-${checked.checkoutAttemptId}-r${revision}`,
+        integrationIdentifier,
+      },
+      deps.fetchImpl
+    );
+  } catch (err) {
+    if (err && err.code === 'stripe_unavailable') {
+      return { status: 503, body: { error: 'Could not start payment. Try again in a moment.' } };
+    }
+    throw err;
+  }
 
   await store.updateOrder(orderId, {
     stripe_session_id: session.id,
