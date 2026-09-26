@@ -8,7 +8,8 @@
     "dev": "node scripts/build.mjs && node scripts/serve-dist.mjs",
     "test": "node --test js/utils/*.test.js js/checkout/*.test.js test/*.test.js",
     "smoke:deploy": "node scripts/smoke-deploy.mjs",
-    "deploy:functions": "npx --yes supabase@2.58.5 functions deploy catalogue create-checkout stripe-webhook order-status process-jobs refresh-catalogue health operator resend-webhook admin --no-verify-jwt",
+    "deploy:functions": "node scripts/pack-functions.mjs && supabase functions deploy catalogue create-checkout stripe-webhook order-status process-jobs refresh-catalogue health operator resend-webhook admin --no-verify-jwt --project-ref xvrvxofujpqavgnprpmq --use-api",
+    "deploy:functions:api": "node scripts/pack-functions.mjs && node scripts/deploy-all-via-api.mjs",
     "supabase:functions": "npx --yes supabase@2.58.5 functions serve --no-verify-jwt"
   },
   "dependencies": {
@@ -16,5 +17,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "supabase": "^2.118.0"
   }
 }

@@ -1,0 +1,91 @@
+{
+  "name": "health",
+  "entrypoint_path": "health/index.js",
+  "verify_jwt": false,
+  "files": [
+    {
+      "name": "health/index.js",
+      "contentLength": 1340
+    },
+    {
+      "name": "_shared/http.js",
+      "contentLength": 4567
+    },
+    {
+      "name": "_shared/context.js",
+      "contentLength": 2398
+    },
+    {
+      "name": "_shared/crypto-token.js",
+      "contentLength": 826
+    },
+    {
+      "name": "_shared/metrics.js",
+      "contentLength": 502
+    },
+    {
+      "name": "_shared/log.js",
+      "contentLength": 1552
+    },
+    {
+      "name": "_shared/store-supabase.js",
+      "contentLength": 12810
+    },
+    {
+      "name": "_shared/admin-orders.js",
+      "contentLength": 15904
+    },
+    {
+      "name": "_shared/states.js",
+      "contentLength": 2244
+    },
+    {
+      "name": "_shared/refill.js",
+      "contentLength": 7878
+    },
+    {
+      "name": "_shared/catalogue.js",
+      "contentLength": 10468
+    },
+    {
+      "name": "_shared/fulfillment.js",
+      "contentLength": 9460
+    },
+    {
+      "name": "_shared/pricing.js",
+      "contentLength": 5797
+    },
+    {
+      "name": "_shared/socialpanel24.js",
+      "contentLength": 5778
+    },
+    {
+      "name": "_shared/retail-adapter.js",
+      "contentLength": 5700
+    },
+    {
+      "name": "_shared/provider-types.js",
+      "contentLength": 7547
+    },
+    {
+      "name": "_shared/inputs.js",
+      "contentLength": 1987
+    },
+    {
+      "name": "_shared/email-templates.js",
+      "contentLength": 4195
+    },
+    {
+      "name": "_shared/money.js",
+      "contentLength": 2972
+    },
+    {
+      "name": "_shared/retail-catalogue.js",
+      "contentLength": 2221
+    },
+    {
+      "name": "_shared/urls.js",
+      "contentLength": 1673
+    }
+  ]
+}

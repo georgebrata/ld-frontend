@@ -1,0 +1,30 @@
+{
+  "name": "health",
+  "entrypoint_path": "health/index.js",
+  "verify_jwt": false,
+  "fileCount": 21,
+  "fileNames": [
+    "health/index.js",
+    "_shared/http.js",
+    "_shared/context.js",
+    "_shared/crypto-token.js",
+    "_shared/metrics.js",
+    "_shared/log.js",
+    "_shared/store-supabase.js",
+    "_shared/admin-orders.js",
+    "_shared/states.js",
+    "_shared/refill.js",
+    "_shared/catalogue.js",
+    "_shared/fulfillment.js",
+    "_shared/pricing.js",
+    "_shared/socialpanel24.js",
+    "_shared/retail-adapter.js",
+    "_shared/provider-types.js",
+    "_shared/inputs.js",
+    "_shared/email-templates.js",
+    "_shared/money.js",
+    "_shared/retail-catalogue.js",
+    "_shared/urls.js"
+  ],
+  "totalContentBytes": 107831
+}

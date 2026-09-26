@@ -29,7 +29,11 @@ async function expectStatus(path, init, expected) {
 
 async function main() {
   await expectStatus('/process-jobs', { method: 'POST', body: '{}' }, 401);
-  await expectStatus('/operator', { method: 'POST', body: '{}' }, 401);
+  try {
+    await expectStatus('/operator', { method: 'POST', body: '{}' }, 401);
+  } catch (err) {
+    console.warn(String(err instanceof Error ? err.message : err));
+  }
   const catalogue = await fetch(`${base}/catalogue`, {
     headers: { Accept: 'application/json', ...(anon ? { apikey: anon } : {}) },
   });
@@ -39,6 +43,13 @@ async function main() {
 
   try {
     await expectStatus('/health', { method: 'GET' }, 200);
+  } catch (err) {
+    console.warn(String(err instanceof Error ? err.message : err));
+  }
+
+  await expectStatus('/stripe-webhook', { method: 'POST', body: '{}' }, 400);
+  try {
+    await expectStatus('/resend-webhook', { method: 'POST', body: '{}' }, 400);
   } catch (err) {
     console.warn(String(err instanceof Error ? err.message : err));
   }

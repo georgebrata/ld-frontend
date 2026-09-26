@@ -17,6 +17,10 @@ const FUNCTIONS = [
   'order-status',
   'process-jobs',
   'refresh-catalogue',
+  'health',
+  'operator',
+  'resend-webhook',
+  'admin',
 ];
 const SKIP = new Set(['store-memory.js']);
 

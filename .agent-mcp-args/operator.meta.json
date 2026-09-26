@@ -1,0 +1,9 @@
+{
+  "name": "operator",
+  "entrypoint_path": "operator/index.js",
+  "verify_jwt": false,
+  "fileChunks": [
+    0,
+    10
+  ]
+}

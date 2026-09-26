@@ -2,6 +2,9 @@ node_modules/
 dist/
 .DS_Store
 supabase/.env
+supabase/.access-token
+.mcp-deploy-*.json
+.deploy-*.manifest.json
 .wrangler/
 tmp-deploy/
 tmp/
