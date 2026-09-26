@@ -524,7 +524,7 @@ body.page-why #menu-trigger {
   margin-left: 0;
 }
 
-body.page-why .menu-trigger {
+body.page-why #menu-trigger:not(.close) .menu-trigger {
   background: var(--color-white);
 }
 
