@@ -17,7 +17,7 @@
       const page = document.getElementById('page');
       const wrapper = document.getElementById('wrapper');
       if (wrapper) wrapper.classList.add('loaded');
-      if (page) {
+      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > 305) {
         page.style.opacity = '1';
         page.classList.add('is-revealed');
       }
@@ -120,7 +120,7 @@
 
     if (prefersReduced) {
       if (wrapper) wrapper.classList.add('loaded');
-      if (page) {
+      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > 305) {
         page.style.removeProperty('opacity');
         page.classList.add('is-revealed');
       }
@@ -172,11 +172,15 @@
       if (delta > openAt && !coatOpen) {
         coatOpen = true;
         setCoat(true);
-        revealPage();
         wiggleCards();
       } else if (delta <= closeAt && coatOpen && !prefersReduced) {
         coatOpen = false;
         setCoat(false);
+      }
+
+      if (delta > 305) {
+        revealPage();
+      } else {
         concealPage();
       }
     }
