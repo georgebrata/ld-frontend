@@ -7,6 +7,8 @@
  * never deliver it to the page listener).
  */
 (function () {
+  const PAGE_REVEAL_SCROLL_THRESHOLD = 301;
+
   function start() {
     if (window.__ldSceneStarted) return true;
     if (!document.getElementById('wrapper') && !document.getElementById('menu-trigger')) return false;
@@ -17,7 +19,7 @@
       const page = document.getElementById('page');
       const wrapper = document.getElementById('wrapper');
       if (wrapper) wrapper.classList.add('loaded');
-      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > 305) {
+      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > PAGE_REVEAL_SCROLL_THRESHOLD) {
         page.style.opacity = '1';
         page.classList.add('is-revealed');
       }
@@ -120,7 +122,7 @@
 
     if (prefersReduced) {
       if (wrapper) wrapper.classList.add('loaded');
-      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > 305) {
+      if (page && (window.scrollY || document.documentElement.scrollTop || 0) > PAGE_REVEAL_SCROLL_THRESHOLD) {
         page.style.removeProperty('opacity');
         page.classList.add('is-revealed');
       }
@@ -178,7 +180,7 @@
         setCoat(false);
       }
 
-      if (delta > 305) {
+      if (delta > PAGE_REVEAL_SCROLL_THRESHOLD) {
         revealPage();
       } else {
         concealPage();
