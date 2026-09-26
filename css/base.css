@@ -628,7 +628,7 @@ h6 {
 
   #page {
     width: 100vw;
-    padding: min(130vw, 580px) 8vw 20vw;
+    padding: min(180vw, 1220px) 8vw 70vw 20vW;
     margin: 0;
     z-index: 1;
   }
