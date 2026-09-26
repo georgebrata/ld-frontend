@@ -156,6 +156,25 @@ export function createSupabaseStore(client, clock = () => new Date()) {
       return data;
     },
 
+    /** Reset attempts on singleton poll batches so max_attempts cannot permanently stop status updates. */
+    async requeueSingleton(id, outcome, nextRetryAt) {
+      const { data, error } = await client
+        .from('jobs')
+        .update({
+          status: 'pending',
+          outcome,
+          next_retry_at: nextRetryAt,
+          attempts: 0,
+          lease_until: null,
+          updated_at: clock().toISOString(),
+        })
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
     async skipJob(id, outcome) {
       const { data, error } = await client
         .from('jobs')
@@ -214,20 +233,9 @@ export function createSupabaseStore(client, clock = () => new Date()) {
     },
 
     async operationalSnapshot() {
-      const { data: jobRows } = await client.from('jobs').select('status');
-      const { data: orderRows } = await client.from('orders').select('payment_status, fulfillment_status');
-      const jobs = jobRows || [];
-      const orders = orderRows || [];
-      return {
-        jobsPending: jobs.filter((job) => job.status === 'pending').length,
-        jobsFailed: jobs.filter((job) => job.status === 'failed').length,
-        jobsLeased: jobs.filter((job) => job.status === 'leased').length,
-        unknownSubmissions: orders.filter((row) => row.fulfillment_status === 'submission_unknown').length,
-        deferredFulfillment: orders.filter((row) => row.fulfillment_status === 'deferred').length,
-        paidUnfulfilled: orders.filter(
-          (row) => row.payment_status === 'paid' && !['completed', 'skipped_test_mode'].includes(row.fulfillment_status)
-        ).length,
-      };
+      const { data, error } = await client.rpc('count_ops_snapshot');
+      if (error) throw error;
+      return data && typeof data === 'object' ? data : {};
     },
 
     async getJobByExternalRef(ref) {

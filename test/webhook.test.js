@@ -161,7 +161,8 @@ test('amount mismatch cannot produce false payment success', async () => {
     },
   });
   const result = await handleStripeWebhook({ STRIPE_WEBHOOK_SECRET: SECRET }, store, payload, sign(payload));
-  assert.equal(result.status, 409);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.outcome, 'rejected');
   const order = await store.getOrderById('11111111-1111-4111-8111-111111111111');
   assert.equal(order.payment_status, 'pending');
   assert.equal(order.stripe_session_id, 'cs_test');
@@ -241,9 +242,10 @@ test('rejected mismatch events remain replayable and do not become duplicates', 
   });
   const first = await handleStripeWebhook({ STRIPE_WEBHOOK_SECRET: SECRET }, store, payload, sign(payload));
   const second = await handleStripeWebhook({ STRIPE_WEBHOOK_SECRET: SECRET }, store, payload, sign(payload));
-  assert.equal(first.status, 409);
-  assert.equal(second.status, 409);
-  assert.equal(second.body.duplicate, undefined);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.outcome, 'rejected');
+  assert.equal(second.status, 200);
+  assert.equal(second.body.duplicate, true);
 });
 
 test('UI state keeps unknown unknown and does not infer email from payment', () => {

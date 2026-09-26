@@ -1,4 +1,4 @@
-import { corsHeaders, json, clientIp, readJsonBody, MAX_JSON_BYTES } from '../_shared/http.js';
+import { corsHeaders, json, clientIp, readJsonBody, readCapabilityToken, MAX_JSON_BYTES } from '../_shared/http.js';
 import { createContext, readEnv } from '../_shared/context.js';
 import { createGuestCheckout } from '../_shared/checkout.js';
 
@@ -16,7 +16,11 @@ Deno.serve(async (request) => {
     }
     const parsed = await readJsonBody(request, MAX_JSON_BYTES);
     if (!parsed.ok) return json({ error: parsed.error }, 400, headers);
-    const result = await createGuestCheckout(env, ctx.store, parsed.value, {
+    const capabilityToken = readCapabilityToken(request);
+    if (capabilityToken.length < 32) {
+      return json({ error: 'A checkout token is required.' }, 401, headers);
+    }
+    const result = await createGuestCheckout(env, ctx.store, { ...parsed.value, capabilityToken }, {
       fetchImpl: fetch,
       storefrontOrigin: request.headers.get('Origin') || '',
     });

@@ -6,9 +6,9 @@ Do this in order. Static hosting can go live before secrets exist; checkout stay
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Copy the project URL and **anon** key into `js/config.js` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-3. Apply **all** `supabase/migrations/*.sql` files in order (`npx supabase db push` or SQL editor).
+3. Apply migrations **forward-only** on hosted projects (SQL editor or `apply_migration` per file). Do not replay the full folder with `db push` if hosted history diverged. Operational tables use RLS with **no policies** and no `anon` grants — that is intentional; do not add anon policies to silence the linter.
 4. Confirm Authentication → Policies: operational tables have RLS on and no grants to `anon`/`authenticated`.
-5. Edge Functions → set secrets from `supabase/.env.example`. Keep `SOCIALPANEL24_ENABLED=false`, `PROVIDER_ENV=test`, `APP_ENV=development` until go-live.
+5. Edge Functions → set secrets from `supabase/.env.example`. Keep `SOCIALPANEL24_ENABLED=false`, `PROVIDER_ENV=test`, `APP_ENV=development` until go-live. **`SOCIALPANEL24_ENABLED` is read only from Edge Function secrets (Deno.env), not from `public.app_secrets`** — a database row cannot arm live provider `add`.
 6. Deploy every function in `supabase/config.toml`.
 
 ```bash
@@ -55,8 +55,9 @@ Do not commit sandbox claim URLs.
 ## 5. Static site
 
 1. `npm run build`
-2. Upload **`dist/` only** (HTML, `css/`, `js/`, `assets/`, `favicon/`, `legal/`, `sitemap.xml`, `robots.txt`, `_headers`).
-3. Production domain must match `SITE_URL` and CORS allowlist (`https://like-dealer.com`).
+2. Upload **`dist/` only** (HTML, `css/`, `js/`, `assets/`, `favicon/`, `legal/`, `sitemap.xml`, `robots.txt`, `_headers`, `vercel.json` when deploying to Vercel).
+3. On Vercel, security headers come from `vercel.json`; Netlify uses `_headers`. Cron jobs read `WORKER_SECRET` and `APP_FUNCTIONS_URL` from **`public.app_secrets`** — keep them in sync with Edge secrets.
+4. Production domain must match `SITE_URL` and CORS allowlist (`https://like-dealer.com`).
 
 ## 6. Smoke (test mode)
 

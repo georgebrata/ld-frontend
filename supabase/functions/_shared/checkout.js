@@ -136,7 +136,10 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
       return { status: 404, body: { error: 'Checkout attempt not found.' } };
     }
     if (existing.payment_status === 'paid') {
-      return { status: 409, body: { error: 'This checkout attempt is already paid.' } };
+      return {
+        status: 409,
+        body: { error: 'This checkout attempt is already paid.', code: 'already_paid', orderId: existing.id },
+      };
     }
     if (!sameParams(existing, fingerprint)) {
       return { status: 409, body: { error: 'This checkout attempt was started with different details. Start again.' } };
@@ -160,7 +163,10 @@ export async function createGuestCheckout(env, store, body, deps = {}) {
         await expireCheckoutSession(env, existing.stripe_session_id, deps.fetchImpl);
       }
       if (session && session.payment_status === 'paid') {
-        return { status: 409, body: { error: 'This checkout attempt is already paid.' } };
+        return {
+          status: 409,
+          body: { error: 'This checkout attempt is already paid.', code: 'already_paid', orderId: existing.id },
+        };
       }
     }
   }

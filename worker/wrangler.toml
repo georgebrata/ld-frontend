@@ -1,3 +1,0 @@
-# Intentionally invalid. The Cloudflare Worker is obsolete.
-# See DEPRECATED.md. Deploying this file must fail.
-name = "do-not-deploy-likedealer-worker"

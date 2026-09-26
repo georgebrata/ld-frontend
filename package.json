@@ -7,6 +7,8 @@
     "build:check": "BUILD_OFFLINE=1 BUILD_CHECK=1 node scripts/build.mjs",
     "dev": "node scripts/build.mjs && node scripts/serve-dist.mjs",
     "test": "node --test js/utils/*.test.js js/checkout/*.test.js test/*.test.js",
+    "smoke:deploy": "node scripts/smoke-deploy.mjs",
+    "deploy:functions": "npx --yes supabase@2.58.5 functions deploy catalogue create-checkout stripe-webhook order-status process-jobs refresh-catalogue health operator resend-webhook admin --no-verify-jwt",
     "supabase:functions": "npx --yes supabase@2.58.5 functions serve --no-verify-jwt"
   },
   "dependencies": {

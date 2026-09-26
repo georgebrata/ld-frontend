@@ -423,6 +423,58 @@ async function removeStaleServiceDirs(dir, keep) {
   );
 }
 
+/** Write content-hashed copies of key assets and rewrite dist HTML references. */
+async function applyContentHashes() {
+  /** @type {Map<string, string>} */
+  const replacements = new Map();
+  const assets = [
+    'css/variables.css',
+    'css/base.css',
+    'css/components.css',
+    'css/pages.css',
+    'css/admin.css',
+    'js/app.js',
+    'js/ui/scene.js',
+  ];
+  for (const rel of assets) {
+    const abs = path.join(DIST, rel);
+    try {
+      await stat(abs);
+    } catch {
+      continue;
+    }
+    const content = await readFile(abs);
+    const hash = createHash('sha256').update(content).digest('hex').slice(0, 8);
+    const parsed = path.parse(rel);
+    const hashedRel = path.join(parsed.dir, `${parsed.name}.${hash}${parsed.ext}`).replace(/\\/g, '/');
+    await writeFile(path.join(DIST, hashedRel), content);
+    replacements.set(`/${rel}`, `/${hashedRel}`);
+  }
+
+  async function walkHtml(dir) {
+    const entries = await readdir(dir, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walkHtml(full);
+          return;
+        }
+        if (!entry.name.endsWith('.html')) return;
+        let html = await readFile(full, 'utf8');
+        for (const [from, to] of replacements) {
+          html = html.split(`${from}?`).join(`${to}?`);
+          html = html.split(from).join(to);
+        }
+        html = html.replace(/\?v=[a-z0-9]+/g, '');
+        await writeFile(full, html);
+      })
+    );
+  }
+
+  await walkHtml(DIST);
+}
+
 async function copyStatic(version) {
   const dirs = ['css', 'js', 'assets', 'favicon', 'why', 'success', 'cancel', 'legal', 'admin'];
   for (const dir of dirs) {
@@ -548,10 +600,13 @@ async function main() {
 
   await writeFile(path.join(DIST, 'sitemap.xml'), writeSitemap(platforms, services));
   await copyStatic(version);
+  await applyContentHashes();
 
   if (process.env.BUILD_CHECK === '1') {
     const home = await readFile(path.join(DIST, 'index.html'), 'utf8');
     if (!home.includes('data-page="home"')) throw new Error('build check failed: home page');
+    if (!/\/css\/base\.[a-f0-9]{8}\.css/.test(home)) throw new Error('build check failed: hashed css');
+    if (!home.includes('is-revealed')) throw new Error('build check failed: page reveal fallback');
     if (home.includes('cdn.jsdelivr.net')) throw new Error('build check failed: jsDelivr in dist');
     const headers = await readFile(path.join(DIST, '_headers'), 'utf8');
     if (!headers.includes('X-Content-Type-Options')) throw new Error('build check failed: _headers');

@@ -45,7 +45,12 @@ const ENV_KEYS = Object.freeze([
   'MIN_CONTRIBUTION_MINOR',
 ]);
 
-const DENO_ONLY = new Set(['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY']);
+const DENO_ONLY = new Set([
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SOCIALPANEL24_ENABLED',
+]);
 
 /**
  * @returns {Record<string, string>}

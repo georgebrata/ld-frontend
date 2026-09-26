@@ -96,6 +96,19 @@
   <script type="application/json" id="services-data">{{SERVICES_JSON}}</script>
   <script src="/js/ui/scene.js?v={{ASSET_VERSION}}"></script>
   <script type="module" src="/js/app.js?v={{ASSET_VERSION}}"></script>
+  <script>
+    (function () {
+      window.setTimeout(function () {
+        var page = document.getElementById('page');
+        if (page && !page.classList.contains('is-revealed')) {
+          page.style.opacity = '1';
+          page.classList.add('is-revealed');
+          var wrapper = document.getElementById('wrapper');
+          if (wrapper) wrapper.classList.add('loaded');
+        }
+      }, 2000);
+    })();
+  </script>
 </body>
 
 </html>

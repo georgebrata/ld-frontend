@@ -108,7 +108,8 @@ export async function createCheckoutSession(env, order, quote, fetchImpl = fetch
         'payment_intent_data[metadata][checkoutAttemptId]': order.checkoutAttemptId,
       }),
     },
-    timeoutMs
+    timeoutMs,
+    'stripe'
   );
 
   const json = await response.json().catch(() => ({}));
@@ -135,7 +136,8 @@ export async function expireCheckoutSession(env, sessionId, fetchImpl = fetch) {
       method: 'POST',
       headers: stripeHeaders(env),
     },
-    timeoutMs
+    timeoutMs,
+    'stripe'
   );
   const json = await response.json().catch(() => null);
   return { ok: response.ok || response.status === 400, status: response.status, json };
@@ -167,7 +169,8 @@ export async function retrieveCheckoutSessionResult(env, sessionId, fetchImpl = 
       fetchImpl,
       `https://api.stripe.com/v1/checkout/sessions/${sessionId}`,
       { headers: stripeHeaders(env) },
-      timeoutMs
+      timeoutMs,
+      'stripe'
     );
   } catch {
     return { session: null, missing: false, error: true };

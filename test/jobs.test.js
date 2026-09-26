@@ -51,3 +51,28 @@ test('multiple poll jobs cause one provider status request per worker run', asyn
   );
   assert.equal(statusCalls, 1);
 });
+
+test('requeueSingleton resets attempts so poll:batch survives max_attempts', async () => {
+  const store = createMemoryStore();
+  await store.enqueueJob({
+    orderId: null,
+    task: 'poll_provider_status',
+    dedupeKey: 'poll:batch',
+  });
+  const row = store.jobs.find((job) => job.dedupe_key === 'poll:batch');
+  row.attempts = 12;
+  row.status = 'failed';
+  row.next_retry_at = new Date(Date.now() - 60_000).toISOString();
+
+  await store.requeueSingleton(
+    row.id,
+    { reason: 'requeue_poll', remaining: 1 },
+    new Date(Date.now() - 1000).toISOString()
+  );
+
+  const after = store.jobs.find((job) => job.dedupe_key === 'poll:batch');
+  assert.equal(after.status, 'pending');
+  assert.equal(after.attempts, 0);
+  const claimed = await store.claimJobs('worker', 5);
+  assert.ok(claimed.some((job) => job.dedupe_key === 'poll:batch'));
+});

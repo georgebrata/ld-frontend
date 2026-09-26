@@ -214,6 +214,11 @@ async function applyCataloguePause(payload, deps) {
   return { ...payload, data, paused: true };
 }
 
+function countPurchasableRows(services) {
+  if (!Array.isArray(services)) return 0;
+  return services.filter((row) => row && row.purchasable).length;
+}
+
 export async function getPublicCatalogue(env, deps = {}) {
   const now = deps.now ? deps.now() : Date.now();
   if (memory.public && memory.public.expires > now) {
@@ -242,6 +247,19 @@ export async function getPublicCatalogue(env, deps = {}) {
       staleUntil: providerOk ? now + CATALOGUE_STALE_MS : now + ttl,
       payload,
     };
+    const purchasableCount = countPurchasableRows(built.publicServices);
+    let priorEntry = null;
+    if (deps.cacheGet) {
+      priorEntry = await deps.cacheGet('catalogue:public');
+    }
+    const priorPurchasable = countPurchasableRows(priorEntry?.payload?.data);
+    if (providerOk && purchasableCount === 0 && priorPurchasable > 0 && priorEntry?.staleUntil > now) {
+      memory.public = priorEntry;
+      return applyCataloguePause(
+        { ...priorEntry.payload, cache: 'stale', warning: 'empty_join' },
+        deps
+      );
+    }
     memory.public = entry;
     if (deps.cacheSet && providerOk) await deps.cacheSet('catalogue:public', entry, CATALOGUE_STALE_MS);
     return applyCataloguePause({ ...payload, cache: 'fresh' }, deps);
@@ -331,14 +349,29 @@ export async function refreshCatalogue(env, deps = {}) {
     staleUntil: now + CATALOGUE_STALE_MS,
     payload,
   };
-  memory.public = entry;
+  const purchasableCount = countPurchasableRows(built.publicServices);
+  let priorEntry = null;
+  if (deps.cacheGet) {
+    priorEntry = await deps.cacheGet('catalogue:public');
+  }
+  const priorPurchasable = countPurchasableRows(priorEntry?.payload?.data);
+  const skipPublicCache = purchasableCount === 0 && priorPurchasable > 0;
+
+  if (!skipPublicCache) {
+    memory.public = entry;
+  } else if (priorEntry) {
+    memory.public = priorEntry;
+  }
 
   /** @type {string[]} */
   const cacheKeys = [];
   if (deps.cacheSet) {
     await deps.cacheSet('sp24:services', { expires: now + CATALOGUE_TTL_MS, services: providerRows }, CATALOGUE_STALE_MS);
-    await deps.cacheSet('catalogue:public', entry, CATALOGUE_STALE_MS);
-    cacheKeys.push('sp24:services', 'catalogue:public');
+    cacheKeys.push('sp24:services');
+    if (!skipPublicCache) {
+      await deps.cacheSet('catalogue:public', entry, CATALOGUE_STALE_MS);
+      cacheKeys.push('catalogue:public');
+    }
   }
 
   const products = built.internals.map((row) => ({

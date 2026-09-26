@@ -73,7 +73,7 @@ Edit [`js/config.js`](js/config.js). Secrets do not belong here.
 | `SUPPORT_EMAIL` | Shown on success/cancel and legal pages |
 | `ANALYTICS_ENABLED` | Optional events; requires `localStorage ld.analyticsConsent=1` |
 
-Obsolete Apps Script, n8n, Cloudflare Worker, and MailerSend settings have been removed. The `worker/` tree is disabled; see `worker/DEPRECATED.md`.
+Obsolete Apps Script, n8n, Cloudflare Worker, and MailerSend settings have been removed. Do not deploy a separate Cloudflare Worker for checkout.
 
 ## Edge Functions
 

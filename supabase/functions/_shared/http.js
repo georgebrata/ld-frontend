@@ -2,6 +2,8 @@
  * CORS, JSON, OPTIONS, and request-size helpers. CORS is not authentication.
  */
 
+import { logSlow } from './log.js';
+
 export const MAX_JSON_BYTES = 32 * 1024;
 export const MAX_WEBHOOK_BYTES = 256 * 1024;
 
@@ -156,13 +158,8 @@ export async function readJsonBody(request, maxBytes = MAX_JSON_BYTES) {
 /**
  * @param {Request} request
  */
-export function readCapabilityToken(request, body = {}) {
-  return (
-    request.headers.get('X-Checkout-Token') ||
-    request.headers.get('x-checkout-token') ||
-    (typeof body.capabilityToken === 'string' ? body.capabilityToken : '') ||
-    ''
-  );
+export function readCapabilityToken(request) {
+  return request.headers.get('X-Checkout-Token') || request.headers.get('x-checkout-token') || '';
 }
 
 /**
@@ -179,12 +176,14 @@ export function correlationId(request) {
  * @param {RequestInit} [init]
  * @param {number} [timeoutMs]
  */
-export async function fetchWithTimeout(fetchImpl, url, init = {}, timeoutMs = 15000) {
+export async function fetchWithTimeout(fetchImpl, url, init = {}, timeoutMs = 15000, vendor = '') {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const started = Date.now();
   try {
     return await fetchImpl(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    if (vendor) logSlow(vendor, Date.now() - started, timeoutMs);
   }
 }

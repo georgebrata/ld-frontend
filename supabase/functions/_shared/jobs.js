@@ -137,7 +137,7 @@ async function settlePollJob(env, store, job, order, deps) {
     return;
   }
   const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
-  await store.failJob(job.id, { reason: 'requeue_poll', remaining: remaining.length }, next, exhausted(job));
+  await store.requeueSingleton(job.id, { reason: 'requeue_poll', remaining: remaining.length }, next);
 }
 
 async function settleRefillPollJob(store, job) {
@@ -152,7 +152,7 @@ async function settleRefillPollJob(store, job) {
     return;
   }
   const next = new Date(Date.now() + Math.max(60_000, backoffMs(job.attempts))).toISOString();
-  await store.failJob(job.id, { reason: 'requeue_refill_poll', remaining: remaining.length }, next, exhausted(job));
+  await store.requeueSingleton(job.id, { reason: 'requeue_refill_poll', remaining: remaining.length }, next);
 }
 
 /**

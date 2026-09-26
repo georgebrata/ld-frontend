@@ -2,10 +2,9 @@ node_modules/
 dist/
 .DS_Store
 supabase/.env
-worker/.dev.vars
-worker/.wrangler/
 .wrangler/
 tmp-deploy/
+tmp/
 
 .projects/cache
 .projects/vault

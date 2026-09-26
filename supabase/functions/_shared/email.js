@@ -42,7 +42,8 @@ export async function sendResendEmail(env, message, fetchImpl = fetch) {
         reply_to: env.REPLY_TO_EMAIL || env.FROM_EMAIL,
       }),
     },
-    timeoutMs
+    timeoutMs,
+    'resend'
   );
 
   const json = await response.json().catch(() => ({}));

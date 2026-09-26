@@ -72,3 +72,14 @@ export function logError(message, meta) {
   }
   console.error(message, redact(meta));
 }
+
+/**
+ * @param {string} vendor
+ * @param {number} elapsedMs
+ * @param {number} timeoutMs
+ */
+export function logSlow(vendor, elapsedMs, timeoutMs) {
+  const limit = Math.max(1, Math.floor(Number(timeoutMs) / 2));
+  if (Number(elapsedMs) <= limit) return;
+  console.warn('slow vendor call', redact({ vendor, elapsedMs, timeoutMs }));
+}

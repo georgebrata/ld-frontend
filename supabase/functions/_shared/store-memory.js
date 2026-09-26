@@ -159,8 +159,16 @@ export function createMemoryStore(clock = () => new Date()) {
       objectId,
     }) {
       const existingEvent = events.get(eventId);
-      if (existingEvent && ['accepted', 'ignored', 'duplicate'].includes(existingEvent.outcome)) {
-        return { duplicate: true, enqueued: false, outcome: 'duplicate', order: await store.getOrderById(orderId) };
+      if (
+        existingEvent &&
+        ['accepted', 'ignored', 'duplicate', 'rejected'].includes(existingEvent.outcome)
+      ) {
+        return {
+          duplicate: true,
+          enqueued: false,
+          outcome: existingEvent.outcome === 'rejected' ? 'rejected' : 'duplicate',
+          order: await store.getOrderById(orderId),
+        };
       }
 
       const session = typeof sessionId === 'string' && sessionId.startsWith('cs_') ? sessionId : '';
@@ -331,6 +339,18 @@ export function createMemoryStore(clock = () => new Date()) {
       job.status = terminal ? 'failed' : 'pending';
       job.outcome = outcome;
       job.next_retry_at = nextRetryAt || nowIso(clock());
+      job.lease_until = null;
+      job.updated_at = nowIso(clock());
+      return job;
+    },
+
+    async requeueSingleton(id, outcome, nextRetryAt) {
+      const job = jobs.find((row) => row.id === id);
+      if (!job) return null;
+      job.status = 'pending';
+      job.outcome = outcome;
+      job.next_retry_at = nextRetryAt || nowIso(clock());
+      job.attempts = 0;
       job.lease_until = null;
       job.updated_at = nowIso(clock());
       return job;

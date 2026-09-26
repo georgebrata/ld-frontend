@@ -351,6 +351,10 @@ export async function mountCheckoutForm(container, service) {
         errorBanner.hidden = false;
         return;
       }
+      if (err && err.code === 'already_paid') {
+        window.location.href = '/success/';
+        return;
+      }
       if (/start again/i.test(message)) {
         const next = rotateCapability(fingerprint);
         payload.checkoutAttemptId = next.attemptId;

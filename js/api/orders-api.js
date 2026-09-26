@@ -17,9 +17,10 @@ function readError(json, status) {
  * }} payload
  */
 export async function createCheckoutSession(payload) {
+  const { capabilityToken, ...body } = payload;
   const { response, json } = await invokeFunction('create-checkout', {
-    body: payload,
-    headers: { 'X-Checkout-Token': payload.capabilityToken },
+    body,
+    headers: { 'X-Checkout-Token': capabilityToken },
   });
   if (response.status === 409 && json.code === 'quote_changed') {
     const err = new Error(json.error || 'The price changed.');
@@ -30,6 +31,12 @@ export async function createCheckoutSession(payload) {
   if (response.status === 409 && /start again/i.test(String(json.error || ''))) {
     const err = new Error(json.error);
     err.code = 'start_again';
+    throw err;
+  }
+  if (response.status === 409 && (json.code === 'already_paid' || /already paid/i.test(String(json.error || '')))) {
+    const err = new Error(json.error || 'This checkout is already paid.');
+    err.code = 'already_paid';
+    err.orderId = json.orderId;
     throw err;
   }
   if (!response.ok) throw new Error(readError(json, response.status));

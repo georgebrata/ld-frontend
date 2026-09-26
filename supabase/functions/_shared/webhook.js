@@ -97,7 +97,7 @@ export async function handleStripeWebhook(env, store, rawBody, signature, deps =
       });
     }
     logError('webhook mismatch', { mismatch: 'mode' });
-    return { status: 409, body: { error: 'Session mode is not payment.', mismatch: 'mode' } };
+    return { status: 200, body: { ok: true, rejected: true, mismatch: 'mode', outcome: 'rejected' } };
   }
 
   if (!desired) {
@@ -136,7 +136,16 @@ export async function handleStripeWebhook(env, store, rawBody, signature, deps =
 
     if (result?.mismatch) {
       logError('webhook mismatch', { mismatch: result.mismatch });
-      return { status: 409, body: { error: 'Session does not match the stored order.', mismatch: result.mismatch } };
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          rejected: true,
+          mismatch: result.mismatch,
+          outcome: result.outcome || 'rejected',
+          duplicate: Boolean(result?.duplicate),
+        },
+      };
     }
 
     if (result?.enqueued && deps.kickWorker) {

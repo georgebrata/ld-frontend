@@ -5,6 +5,8 @@
  * Body: application/x-www-form-urlencoded via URLSearchParams.
  */
 
+import { logSlow } from './log.js';
+
 export const SOCIALPANEL24_URL = 'https://socialpanel24.com/api/v2';
 
 const ALLOWED_ACTIONS = new Set(['services', 'add', 'status', 'balance', 'refill', 'refill_status']);
@@ -93,6 +95,7 @@ export async function socialPanelRequest(env, action, fields = {}) {
   const timeoutMs = Number(env.timeoutMs) > 0 ? Number(env.timeoutMs) : 15000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const fetchImpl = env.fetchImpl || fetch;
+  const started = Date.now();
 
   /** @type {Response} */
   let response;
@@ -112,6 +115,7 @@ export async function socialPanelRequest(env, action, fields = {}) {
     });
   } finally {
     clearTimeout(timer);
+    logSlow('socialpanel24', Date.now() - started, timeoutMs);
   }
 
   const raw = await response.text();
