@@ -10,6 +10,7 @@ import {
   productRowToRetail,
 } from '../supabase/functions/_shared/retail-adapter.js';
 import {
+  catalogueProbeQuantity,
   clearCatalogueMemory,
   getPublicCatalogue,
   joinService,
@@ -100,6 +101,44 @@ test('unmapped and subscription types are disabled and public payload omits prov
   );
   assert.equal(sub.enabled, false);
   assert.equal(sub.disableReason, 'unsupported_type');
+});
+
+test('default below provider minimum still yields purchasable join and public quantityMin', () => {
+  const retail = {
+    id: '06',
+    platform: 'youtube',
+    platformLabel: 'Youtube',
+    service: 'Subscribers',
+    description: '',
+    inputs: ['url'],
+    visible: true,
+    socialpanelId: '12610',
+    rateUnit: 'per_1000',
+    retailCurrency: 'USD',
+    markupMultiplier: 2,
+    quantityStep: 50,
+    quantityDefault: 1000,
+    packagePriceMinor: null,
+    dripEnabled: false,
+  };
+  const provider = normalizeProviderService({
+    service: 12610,
+    type: 'Default',
+    rate: '1.5',
+    min: 5000,
+    max: 10000000,
+  });
+  assert.equal(catalogueProbeQuantity(retail, provider), 5000);
+  const joined = joinService(retail, provider, {
+    retailCurrency: 'USD',
+    providerCurrency: 'USD',
+    fxProviderToRetail: 1,
+  });
+  assert.equal(joined.purchasable, true);
+  assert.equal(joined.quantityMin, 5000);
+  const pub = toPublicService(joined);
+  assert.equal(pub.purchasable, true);
+  assert.equal(pub.quantityMin, 5000);
 });
 
 test('empty products list falls back to the bundled catalogue', async () => {

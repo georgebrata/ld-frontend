@@ -66,6 +66,48 @@ export async function getProviderCatalog(env, deps = {}) {
 }
 
 /**
+ * Quantity used to probe whether a mapped service can be quoted for the storefront.
+ * Retail defaults below the provider minimum must not mark the service unpurchasable.
+ *
+ * @param {import('./retail-catalogue.js').RetailService} retail
+ * @param {ReturnType<typeof normalizeProviderService>|null} provider
+ */
+export function catalogueProbeQuantity(retail, provider) {
+  if (!provider) {
+    return Number.isInteger(retail.quantityDefault) && retail.quantityDefault > 0
+      ? retail.quantityDefault
+      : 1;
+  }
+  const typeHandler = getProviderType(provider.type);
+  const mode = typeHandler?.quantityMode;
+  if (mode === 'package' || mode === 'omit' || mode === 'from_comments') {
+    if (Number.isInteger(retail.quantityDefault) && retail.quantityDefault > 0) {
+      return retail.quantityDefault;
+    }
+    if (mode === 'from_comments') return 1;
+    return Number.isFinite(provider.min) && provider.min > 0 ? provider.min : 1;
+  }
+
+  const min = Number.isFinite(provider.min) ? provider.min : 1;
+  const max = Number.isFinite(provider.max) ? provider.max : 10_000_000;
+  const step = Number.isInteger(retail.quantityStep) && retail.quantityStep > 1 ? retail.quantityStep : 1;
+
+  let qty =
+    Number.isInteger(retail.quantityDefault) && retail.quantityDefault > 0
+      ? retail.quantityDefault
+      : min;
+  if (qty < min) qty = min;
+  if (step > 1 && qty % step !== 0) {
+    qty = Math.ceil(qty / step) * step;
+  }
+  if (qty > max) {
+    const aligned = Math.floor(max / step) * step;
+    qty = aligned >= min ? aligned : min;
+  }
+  return qty;
+}
+
+/**
  * @param {import('./retail-catalogue.js').RetailService} retail
  * @param {ReturnType<typeof normalizeProviderService>|null} provider
  * @param {ReturnType<typeof pricingEnv>} money
@@ -77,7 +119,7 @@ export function joinService(retail, provider, money) {
   const mapped = Boolean(retail.socialpanelId && provider);
   const enabled = Boolean(retail.visible && mapped && supported);
 
-  const probeQty = retail.quantityDefault || provider?.min || 1;
+  const probeQty = catalogueProbeQuantity(retail, provider);
   const quote = enabled
     ? quoteService({
         retail,
